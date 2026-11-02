@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ride Relief</title>
+<title>Terrafy</title>
 <meta name="description" content="Turn your Strava rides and routes into 3D-printable topographic maps. Color the terrain, mark your favorite segments, export STL or 3MF.">
 <style>
   :root {
@@ -128,8 +128,8 @@
 </head>
 <body>
 <aside>
-  <h1>Ride <span>Relief</span></h1>
-  <p class="tag">Turn your rides into 3D-printable topo maps.</p>
+  <h1>Terra<span>fy</span></h1>
+  <p class="tag">Your route. Made real.</p>
 
   <section>
     <h2><b>1</b> Add rides</h2>
@@ -1219,7 +1219,7 @@ function stl(geoms) {
   let tris = 0;
   for (const g of geoms) tris += g.idx.length / 3;
   const buf = new ArrayBuffer(84 + tris * 50), dv = new DataView(buf);
-  const head = 'Ride Relief STL';
+  const head = 'Terrafy STL';
   for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
   dv.setUint32(80, tris, true);
   let o = 84;
@@ -1241,7 +1241,7 @@ function stl(geoms) {
 
 function threeMF(groups) {
   const out = ['<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
-    '<metadata name="Application">Ride Relief</metadata><resources><basematerials id="1">'];
+    '<metadata name="Application">Terrafy</metadata><resources><basematerials id="1">'];
   for (const g of groups) out.push(`<base name="${esc(g.name)}" displaycolor="${g.color.toUpperCase()}FF"/>`);
   out.push('</basematerials>');
   groups.forEach((g, gi) => {
@@ -1266,7 +1266,7 @@ function threeMF(groups) {
     out.push(chunk.join(''), '</triangles></mesh></object>');
   });
   const asm = groups.length + 2;
-  out.push(`<object id="${asm}" type="model" name="Ride Relief"><components>`);
+  out.push(`<object id="${asm}" type="model" name="Terrafy"><components>`);
   groups.forEach((g, gi) => out.push(`<component objectid="${gi + 2}"/>`));
   out.push(`</components></object></resources><build><item objectid="${asm}"/></build></model>`);
   return zipSync({
@@ -1278,7 +1278,7 @@ function threeMF(groups) {
 
 function readme(groups) {
   const m = state.model, lines = [
-    'Ride Relief print notes', '=======================', '',
+    'Terrafy print notes', '===================', '',
     `Model size: ${m.W.toFixed(1)} x ${m.H.toFixed(1)} mm, ${m.maxZ.toFixed(1)} mm tall.`, '',
     'Parts:', ...groups.map((g, i) => `  ${i + 1}. ${g.name} (${g.color})`), '',
   ];
@@ -1309,7 +1309,7 @@ function withBusy(btn, fn) {
   };
 }
 
-const baseName = () => slug(state.tracks[0]?.name) + '-relief';
+const baseName = () => slug(state.tracks[0]?.name) + '-terrafy';
 $('ex3mf').onclick = withBusy($('ex3mf'), () => download(threeMF(exportGroups()), baseName() + '.3mf', 'model/3mf'));
 $('exStl').onclick = withBusy($('exStl'), () => download(stl(exportGroups().flatMap((g) => g.geoms)), baseName() + '.stl', 'model/stl'));
 $('exZip').onclick = withBusy($('exZip'), () => {

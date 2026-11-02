@@ -1,4 +1,6 @@
-# Ride Relief
+# Terrafy
+
+**Your route. Made real.**
 
 A free, single-page web app that turns Strava rides and routes (GPX exports) into 3D-printable topographic relief maps.
 
