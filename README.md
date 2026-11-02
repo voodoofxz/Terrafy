@@ -2,6 +2,8 @@
 
 **Your route. Made real.**
 
+**Try it:** https://voodoofxz.github.io/Terrafy/
+
 Brand: the official logos are `brand/terrafy-logo-light.webp` and `brand/terrafy-logo-dark.webp`, used unmodified. The app shows the one that matches the light/dark mode. The UI palette is sampled from them: logo backgrounds `#fcfbfc` and `#020914`, sky `#0356e7` → `#0fd5f2`, wordmark blue `#017ffd` → mint `#08e3ab`.
 
 A free, single-page web app that turns Strava rides and routes (GPX exports) into 3D-printable topographic relief maps.
@@ -22,6 +24,6 @@ npx serve .
 
 ## Host for free
 
-Any static host works: Cloudflare Pages / Workers static assets, GitHub Pages, Netlify.
+Any static host works: Cloudflare Pages / Workers static assets, GitHub Pages, Netlify. This repo is published with GitHub Pages from the `main` branch root; `.nojekyll` makes Pages serve the files as-is.
 
 Elevation data attribution: https://github.com/tilezen/joerd/blob/master/docs/attribution.md. Not affiliated with Strava.
