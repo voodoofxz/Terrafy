@@ -164,6 +164,8 @@
   #profile { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; min-height: 0; }
   footer { font-size: 11px; color: var(--muted); margin-top: 18px; }
   footer a { color: inherit; }
+  .build-info { margin-top: 6px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+  .build-info a { text-decoration: none; border-bottom: 1px dotted currentColor; }
   @media (max-width: 820px) {
     body { display: block; height: auto; overflow: auto; }
     aside { border-right: none; border-bottom: 1px solid var(--border); }
@@ -206,6 +208,7 @@
   <footer>
     Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles on AWS</a>.
     Not affiliated with Strava.
+    <div class="build-info"></div>
   </footer>
 </div>
 <aside>
@@ -343,6 +346,7 @@
     Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles on AWS</a>
     (Mapzen; <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">data sources</a>).
     Not affiliated with Strava.
+    <div class="build-info"></div>
   </footer>
 </aside>
 
@@ -1515,7 +1519,7 @@ function stl(geoms) {
   let tris = 0;
   for (const g of geoms) tris += g.idx.length / 3;
   const buf = new ArrayBuffer(84 + tris * 50), dv = new DataView(buf);
-  const head = 'Terrafy STL';
+  const head = `Terrafy ${versionText()} STL`.slice(0, 80);
   for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
   dv.setUint32(80, tris, true);
   let o = 84;
@@ -1537,7 +1541,8 @@ function stl(geoms) {
 
 function threeMF(groups) {
   const out = ['<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
-    '<metadata name="Application">Terrafy</metadata><resources><basematerials id="1">'];
+    `<metadata name="Application">Terrafy ${esc(versionText())}</metadata>`,
+    `<metadata name="CreationDate">${new Date().toISOString().slice(0, 10)}</metadata><resources><basematerials id="1">`];
   for (const g of groups) out.push(`<base name="${esc(g.name)}" displaycolor="${g.color.toUpperCase()}FF"/>`);
   out.push('</basematerials>');
   groups.forEach((g, gi) => {
@@ -1575,6 +1580,7 @@ function threeMF(groups) {
 function readme(groups) {
   const m = state.model, lines = [
     'Terrafy print notes', '===================', '',
+    `Made with Terrafy ${versionText()} on ${new Date().toISOString().slice(0, 10)}.`, '',
     `Model size: ${m.W.toFixed(1)} x ${m.H.toFixed(1)} mm, ${m.maxZ.toFixed(1)} mm tall.`, '',
     'Parts:', ...groups.map((g, i) => `  ${i + 1}. ${g.name} (${g.color})`), '',
   ];
@@ -1653,6 +1659,36 @@ addEventListener('drop', (e) => {
   const files = [...(e.dataTransfer?.files || [])];
   if (files.length) handleFiles(files); else setStatus('No file received. Try clicking the box to choose your GPX instead.', true);
 });
+
+// ---------- version & build info ----------
+// build.json is written by the GitHub Pages deploy workflow; without it (local runs) the VERSION file is used.
+const REPO_URL = 'https://github.com/voodoofxz/Terrafy';
+const buildInfo = { version: null, commit: null, build: null, committed: null, built: null };
+
+// Short form for exports: "v0.9.0 (a1b2c3d)", or "v0.9.0" when there is no commit
+function versionText() {
+  return `v${buildInfo.version || '?'}${buildInfo.commit ? ` (${buildInfo.commit.slice(0, 7)})` : ''}`;
+}
+
+async function loadBuildInfo() {
+  try {
+    const r = await fetch('build.json', { cache: 'no-store' });
+    if (r.ok) Object.assign(buildInfo, await r.json());
+  } catch (e) {}
+  if (!buildInfo.version) {
+    try {
+      const r = await fetch('VERSION', { cache: 'no-store' });
+      if (r.ok) buildInfo.version = (await r.text()).trim();
+    } catch (e) {}
+  }
+  const b = buildInfo, parts = [`<a href="${REPO_URL}/blob/main/CHANGELOG.md" target="_blank" rel="noopener" title="What's new">v${esc(b.version || '?')}</a>`];
+  if (b.build) parts.push(`build ${esc(b.build)}`);
+  if (b.commit) parts.push(`<a href="${REPO_URL}/commit/${esc(b.commit)}" target="_blank" rel="noopener" title="View this commit">${esc(b.commit.slice(0, 7))}</a>`);
+  const when = b.built || b.committed;
+  if (when) parts.push(`<span title="${esc(when)}">${new Date(when).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span>`);
+  for (const el of document.querySelectorAll('.build-info')) el.innerHTML = 'Terrafy ' + parts.join(' · ');
+}
+loadBuildInfo();
 
 resetBands(4);
 renderThemes();

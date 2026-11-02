@@ -1,0 +1,53 @@
+# Deploys the site to GitHub Pages on every push to main, stamping build.json with the
+# version (from VERSION), commit, build number and dates so the app can show what is live.
+# Requires Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site and stamp build info
+        run: |
+          SITE="$RUNNER_TEMP/site"
+          mkdir -p "$SITE"
+          cp -r index.html brand VERSION CHANGELOG.md "$SITE"/
+          cat > "$SITE/build.json" <<EOF
+          {
+            "version": "$(tr -d '[:space:]' < VERSION)",
+            "commit": "$GITHUB_SHA",
+            "build": $GITHUB_RUN_NUMBER,
+            "committed": "$(git log -1 --format=%cI)",
+            "built": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cat "$SITE/build.json"
+          echo "SITE=$SITE" >> "$GITHUB_ENV"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.SITE }}
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

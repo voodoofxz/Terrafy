@@ -24,6 +24,19 @@ npx serve .
 
 ## Host for free
 
-Any static host works: Cloudflare Pages / Workers static assets, GitHub Pages, Netlify. This repo is published with GitHub Pages from the `main` branch root; `.nojekyll` makes Pages serve the files as-is.
+Any static host works: Cloudflare Pages / Workers static assets, GitHub Pages, Netlify. This repo is published to GitHub Pages by `.github/workflows/pages.yml` on every push to `main`. That needs Settings → Pages → Source set to **GitHub Actions**.
+
+## Versions and builds
+
+- The current version is in [`VERSION`](VERSION) and follows [Semantic Versioning](https://semver.org/). Every release is listed in [`CHANGELOG.md`](CHANGELOG.md) and tagged in git (`v0.9.0`, …).
+- On each deploy, the workflow writes `build.json` with the version, commit, build number, commit date and build date. The app shows these at the bottom of the opening page and the editor sidebar, linked to the changelog and to the commit on GitHub.
+- Every export records the version and commit that made it: the STL header, the 3MF `Application` metadata, and the first line of `README.txt` in the STL zip. A print can always be traced back to the exact code.
+
+To cut a release:
+
+1. Update `VERSION` (patch for fixes, minor for features, major for breaking changes).
+2. Add a section at the top of `CHANGELOG.md`.
+3. Commit, then tag it: `git tag -a v0.10.0 -m "v0.10.0"`.
+4. Push the commit and the tag: `git push --follow-tags`.
 
 Elevation data attribution: https://github.com/tilezen/joerd/blob/master/docs/attribution.md. Not affiliated with Strava.
