@@ -261,9 +261,13 @@
     <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment end markers<small>printed at the start and finish</small></span>
-      <select id="segMarkers" data-rebuild><option value="star">★ Stars</option><option value="none">None</option></select>
+      <select id="segMarkers" data-rebuild>
+        <option value="star">★ Star</option><option value="heart">❤️ Heart</option><option value="bolt">⚡ Lightning</option>
+        <option value="flag">🚩 Flag</option><option value="peak">⛰️ Peak</option><option value="crown">👑 Crown</option>
+        <option value="gem">💎 Gem</option><option value="dot">⚪ Dot</option><option value="none">None</option>
+      </select>
     </label>
-    <label class="row"><span>Star size<small>mm across</small></span><input type="number" id="starSize" value="10" min="3" max="25" step="0.5" data-rebuild></label>
+    <label class="row"><span>Marker size<small>mm across</small></span><input type="number" id="starSize" value="10" min="3" max="25" step="0.5" data-rebuild></label>
   </section>
 
   <section>
@@ -272,7 +276,19 @@
     <label class="stack">Title<input type="text" id="labelTitle" data-rebuild data-label></label>
     <label class="stack">Details<input type="text" id="labelDetails" data-rebuild data-label></label>
     <label class="row"><span>Plate depth<small>mm</small></span><input type="number" id="plateD" value="18" min="8" max="60" step="1" data-rebuild></label>
+    <label class="row"><span>Font</span>
+      <select id="labelFont">
+        <option value="helvetiker_bold">Bold sans</option>
+        <option value="optimer_bold">Classic</option>
+        <option value="gentilis_bold">Serif</option>
+        <option value="droid/droid_serif_bold">Book</option>
+        <option value="droid/droid_sans_mono_regular">Mono</option>
+      </select>
+    </label>
     <label class="row"><span>Text color</span><input type="color" id="labelColor" value="#ffffff" data-rebuild style="justify-self:end"></label>
+    <label class="row"><span>Outline text<small>a contrasting border so words pop</small></span><input type="checkbox" id="outlineOn" data-rebuild style="justify-self:end"></label>
+    <label class="row"><span>Outline color</span><input type="color" id="outlineColor" value="#111111" data-rebuild style="justify-self:end"></label>
+    <label class="row"><span>Outline width<small>mm</small></span><input type="number" id="outlineW" value="0.8" min="0.3" max="3" step="0.1" data-rebuild></label>
     <div class="btns"><button id="labelReset">Reset to ride stats</button></div>
   </section>
 
@@ -285,13 +301,18 @@
       </select>
     </label>
     <div id="bands"></div>
+    <div class="band">
+      <input type="color" id="waterColor" value="#2f7fd8" data-rebuild title="Water color">
+      <span class="lbl">Water (sea &amp; lakes at 0 m)</span>
+      <label class="meta"><input type="checkbox" id="waterOn" checked data-rebuild> show</label>
+    </div>
     <div class="swaps" id="swaps"></div>
     <p class="help">On a single-extruder printer, add a filament change (pause) at each height above. With an AMS or MMU, print the 3MF and give the route and segments their own filaments.</p>
   </section>
 
   <section>
     <h2><b>6</b> Favorite segments</h2>
-    <p class="help" style="margin-top:0">Segments print raised in their own color, with a ★ star at each end. To mark one:</p>
+    <p class="help" style="margin-top:0">Segments print raised in their own color, with a marker (★ ❤️ ⚡ 🚩 …) at each end. To mark one:</p>
     <ol class="steps">
       <li>Find the <b>Elevation profile</b> chart at the bottom of the page.</li>
       <li>Press and hold where the segment starts, drag to where it ends, then let go. The 3D map shows a dot where you are.</li>
@@ -360,26 +381,27 @@ import { zipSync, strToU8 } from 'fflate';
 const $ = (id) => document.getElementById(id);
 const TILE_URL = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 const EARTH = 40075016.686;
-const FONT_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json';
+const FONT_BASE = 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/';
 let font = null;
 const TRACK_COLORS = ['#e8590c', '#1c7ed6', '#c2255c', '#2b8a3e', '#7048e8', '#0c8599'];
 const SEG_COLORS = ['#fab005', '#228be6', '#e64980', '#ffffff', '#7950f2', '#12b886', '#f03e3e', '#40c057'];
 const BAND_DEFAULTS = ['#3d5a3a', '#6f8f4e', '#c8b47a', '#9a7a5a', '#d9d4c7', '#ffffff'];
-// Terrain ramps (low → high) paired with a route color from the opposite side of the color wheel
+// Terrain ramps (low → high) paired with a route color from the opposite side of the color wheel.
+// `water` is chosen to stand apart from the theme's lowland color so the coastline reads clearly.
 const THEMES = [
-  { name: 'Alpine Sunset', bands: ['#0b3c5d', '#1d6a8a', '#5fa8c8', '#e4f3f8'], route: '#ff7a1a', segs: ['#ffd23f', '#ff4f79', '#ffffff'], label: '#ff7a1a' },
-  { name: 'Desert Bloom', bands: ['#6b2f17', '#b5653a', '#dda15e', '#f6e7c8'], route: '#14b8a6', segs: ['#2563eb', '#a7f3d0', '#ffffff'], label: '#14b8a6' },
-  { name: 'Forest & Flame', bands: ['#163026', '#2f6b45', '#6fa86b', '#d4ebc2'], route: '#e0245e', segs: ['#ff9f1c', '#ffd6e0', '#ffffff'], label: '#ffffff' },
-  { name: 'Lavender Gold', bands: ['#2d1b4e', '#553c8b', '#9a7fd1', '#ebe3fa'], route: '#ffcc00', segs: ['#ff8c42', '#7cffcb', '#ffffff'], label: '#ffcc00' },
-  { name: 'Ocean Coral', bands: ['#03363f', '#0a7b83', '#4fc0bf', '#d2f5ef'], route: '#ff6b5b', segs: ['#ffc145', '#ff99c8', '#ffffff'], label: '#ff6b5b' },
-  { name: 'Volcanic Ice', bands: ['#1c1416', '#5a1f1b', '#a3402a', '#e0a07a'], route: '#22d3ee', segs: ['#a3e635', '#e0f2fe', '#ffffff'], label: '#22d3ee' },
-  { name: 'Terrafy', bands: ['#013836', '#0f7a6a', '#3fc4b0', '#e6faf6'], route: '#ff6a3d', segs: ['#017ffd', '#ffd23f', '#ffffff'], label: '#ffffff' },
-  { name: 'Autumn Ridge', bands: ['#3d2f0f', '#7a5a14', '#c9922a', '#f3dca0'], route: '#3b5bdb', segs: ['#74c0fc', '#e599f7', '#ffffff'], label: '#3b5bdb' },
-  { name: 'Ultraviolet', bands: ['#140b2e', '#3c1a78', '#7b3fd1', '#cdb4ff'], route: '#a3e635', segs: ['#facc15', '#22d3ee', '#ffffff'], label: '#a3e635' },
-  { name: 'Rose & Sage', bands: ['#4a1f2e', '#9e4a64', '#d98ba0', '#fbe4ea'], route: '#2fbf71', segs: ['#1c7ed6', '#ffd43b', '#ffffff'], label: '#2fbf71' },
+  { name: 'Alpine Sunset', bands: ['#0b3c5d', '#1d6a8a', '#5fa8c8', '#e4f3f8'], route: '#ff7a1a', segs: ['#ffd23f', '#ff4f79', '#ffffff'], label: '#ff7a1a', water: '#52d6ff' },
+  { name: 'Desert Bloom', bands: ['#6b2f17', '#b5653a', '#dda15e', '#f6e7c8'], route: '#14b8a6', segs: ['#2563eb', '#a7f3d0', '#ffffff'], label: '#14b8a6', water: '#1d4ed8' },
+  { name: 'Forest & Flame', bands: ['#163026', '#2f6b45', '#6fa86b', '#d4ebc2'], route: '#e0245e', segs: ['#ff9f1c', '#ffd6e0', '#ffffff'], label: '#ffffff', water: '#1e88e5' },
+  { name: 'Lavender Gold', bands: ['#2d1b4e', '#553c8b', '#9a7fd1', '#ebe3fa'], route: '#ffcc00', segs: ['#ff8c42', '#7cffcb', '#ffffff'], label: '#ffcc00', water: '#38bdf8' },
+  { name: 'Ocean Coral', bands: ['#03363f', '#0a7b83', '#4fc0bf', '#d2f5ef'], route: '#ff6b5b', segs: ['#ffc145', '#ff99c8', '#ffffff'], label: '#ff6b5b', water: '#2563eb' },
+  { name: 'Volcanic Ice', bands: ['#1c1416', '#5a1f1b', '#a3402a', '#e0a07a'], route: '#22d3ee', segs: ['#a3e635', '#e0f2fe', '#ffffff'], label: '#22d3ee', water: '#1e90ff' },
+  { name: 'Terrafy', bands: ['#013836', '#0f7a6a', '#3fc4b0', '#e6faf6'], route: '#ff6a3d', segs: ['#017ffd', '#ffd23f', '#ffffff'], label: '#ffffff', water: '#017ffd' },
+  { name: 'Autumn Ridge', bands: ['#3d2f0f', '#7a5a14', '#c9922a', '#f3dca0'], route: '#3b5bdb', segs: ['#74c0fc', '#e599f7', '#ffffff'], label: '#3b5bdb', water: '#1d4ed8' },
+  { name: 'Ultraviolet', bands: ['#140b2e', '#3c1a78', '#7b3fd1', '#cdb4ff'], route: '#a3e635', segs: ['#facc15', '#22d3ee', '#ffffff'], label: '#a3e635', water: '#06b6d4' },
+  { name: 'Rose & Sage', bands: ['#4a1f2e', '#9e4a64', '#d98ba0', '#fbe4ea'], route: '#2fbf71', segs: ['#1c7ed6', '#ffd43b', '#ffffff'], label: '#2fbf71', water: '#3b82f6' },
   // Just for fun. `count` switches the map to that many color bands so every color shows.
-  { name: 'Rainbow', count: 6, bands: ['#e81416', '#ff8c00', '#ffd400', '#2bb34a', '#1e6fff', '#8b2fd9'], route: '#ffffff', segs: ['#111111', '#ff4fd8', '#00e5ff'], label: '#ffffff' },
-  { name: 'Unicorn', count: 5, bands: ['#b57bff', '#ff8fd0', '#7fd8ff', '#9ff5d4', '#fff6b8'], route: '#7c1fd6', segs: ['#ff2ec4', '#ffc400', '#00c2e0'], label: '#ff2ec4' },
+  { name: 'Rainbow', count: 6, bands: ['#e81416', '#ff8c00', '#ffd400', '#2bb34a', '#1e6fff', '#8b2fd9'], route: '#ffffff', segs: ['#111111', '#ff4fd8', '#00e5ff'], label: '#ffffff', water: '#00e5ff' },
+  { name: 'Unicorn', count: 5, bands: ['#b57bff', '#ff8fd0', '#7fd8ff', '#9ff5d4', '#fff6b8'], route: '#7c1fd6', segs: ['#ff2ec4', '#ffc400', '#00c2e0'], label: '#ff2ec4', water: '#4f46e5' },
 ];
 
 const state = {
@@ -566,8 +588,10 @@ function readSettings() {
     width: n('width', 150, 30, 400), exag: n('exag', 2, 0.2, 20), base: n('base', 3, 0.6, 30),
     detail: Math.round(n('detail', 300, 40, 600)), routeW: n('routeW', 1.4, 0.4, 6), routeH: n('routeH', 0.8, 0.2, 6),
     segExtra: n('segExtra', 0.6, 0, 6), flattenOcean: $('ocean').checked,
-    stars: $('segMarkers').value === 'star', starSize: n('starSize', 10, 3, 25),
+    marker: $('segMarkers').value, markerSize: n('starSize', 10, 3, 25),
+    waterOn: $('waterOn').checked, waterColor: $('waterColor').value,
     labelOn: $('labelOn').checked, plateD: n('plateD', 18, 8, 60), labelColor: $('labelColor').value,
+    outlineOn: $('outlineOn').checked, outlineColor: $('outlineColor').value, outlineW: n('outlineW', 0.8, 0.3, 3),
     title: $('labelTitle').value.trim(), details: $('labelDetails').value.trim(),
   };
 }
@@ -639,27 +663,36 @@ function rebuild() {
   const latC = fromMY((r.my0 + r.my1) / 2);
   const mmPerM = s / (EARTH * Math.cos(latC * Math.PI / 180));
   const nx = P.detail, ny = Math.max(20, Math.round(P.detail * H / W));
-  const elev = new Float32Array(nx * ny);
-  let minE = Infinity, maxE = -Infinity;
+  const elev = new Float32Array(nx * ny), water = new Uint8Array(nx * ny);
+  const showWater = P.flattenOcean && P.waterOn;
+  let minE = Infinity, maxE = -Infinity, hasWater = false;
   for (let j = 0; j < ny; j++) {
     const my = r.my1 - (j / (ny - 1)) * (r.my1 - r.my0);
     for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
       let e = demSample(r.mx0 + (i / (nx - 1)) * (r.mx1 - r.mx0), my);
-      if (P.flattenOcean && e < 0) e = 0;
-      elev[j * nx + i] = e;
+      if (P.flattenOcean && e <= 0) {
+        e = 0;
+        if (showWater) { water[k] = 1; hasWater = true; elev[k] = 0; continue; } // water is kept out of the land range
+      }
+      elev[k] = e;
       if (e < minE) minE = e;
       if (e > maxE) maxE = e;
     }
   }
+  if (minE === Infinity) { minE = 0; maxE = 0; } // nothing but water
+  // Water sits flat at the base; land starts a few layers higher so the coastline is a clean color change
+  const lift = hasWater ? 0.6 : 0, landBase = P.base + lift;
   const zs = new Float32Array(nx * ny);
-  for (let k = 0; k < zs.length; k++) zs[k] = P.base + (elev[k] - minE) * mmPerM * P.exag;
-  const maxZ = P.base + (maxE - minE) * mmPerM * P.exag;
+  for (let k = 0; k < zs.length; k++) zs[k] = water[k] ? P.base : landBase + (elev[k] - minE) * mmPerM * P.exag;
+  const maxZ = landBase + (maxE - minE) * mmPerM * P.exag;
   const heightAt = (x, y) => {
     const gx = clamp(x / W * (nx - 1), 0, nx - 1.001), gy = clamp(y / H * (ny - 1), 0, ny - 1.001);
     const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j, k = j * nx + i;
     return (zs[k] * (1 - fx) + zs[k + 1] * fx) * (1 - fy) + (zs[k + nx] * (1 - fx) + zs[k + nx + 1] * fx) * fy;
   };
-  const model = { W, H, nx, ny, zs, minE, maxE, base: P.base, maxZ, relief: maxZ - P.base, heightAt, P };
+  // `base` is where land (and the color bands) start; `waterTop` is the filament-swap height from water to land
+  const model = { W, H, nx, ny, zs, minE, maxE, base: landBase, maxZ, relief: maxZ - landBase, heightAt, P, waterTop: hasWater ? P.base + lift / 2 : -1 };
   state.model = model;
 
   for (const t of state.tracks) {
@@ -700,12 +733,12 @@ function buildParts(model, P) {
     const geom = ribbonGeometry(path, width, raise, model);
     if (geom) ribbons.push({ name, color: color.toLowerCase(), geom });
   };
-  // A star stands a little taller than its segment at the start and finish
+  // A marker (star, heart, flag…) stands a little taller than its segment at the start and finish
   const addStars = (name, color, t, a, b) => {
-    if (!P.stars) return;
+    if (!MARKER_SHAPES[P.marker]) return;
     for (const d of [a, b]) {
       const [x, y] = pointAt(t, d);
-      ribbons.push({ name, color: color.toLowerCase(), geom: starGeometry(x, y, P.starSize / 2, P.routeH + P.segExtra + 1, model) });
+      ribbons.push({ name, color: color.toLowerCase(), geom: markerGeometry(P.marker, x, y, P.markerSize / 2, P.routeH + P.segExtra + 1, model) });
     }
   };
   for (const t of state.tracks) {
@@ -732,26 +765,46 @@ function buildParts(model, P) {
   return parts;
 }
 
-// Five-point star prism standing on the terrain: flat top `raise` mm above the highest ground under it,
+// Segment marker outlines in a unit box (-1..1), y up. Simple polygons that print cleanly as solid shapes.
+const MARKER_SHAPES = {
+  star: () => Array.from({ length: 10 }, (_, i) => {
+    const a = Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 0.45 : 1;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  }),
+  heart: () => Array.from({ length: 48 }, (_, i) => {
+    const t = (i / 48) * Math.PI * 2;
+    return [(16 * Math.sin(t) ** 3) / 17, (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17 + 0.15];
+  }),
+  bolt: () => [[0.2, 1], [-0.55, -0.1], [-0.05, -0.1], [-0.25, -1], [0.55, 0.2], [0.05, 0.2]],
+  flag: () => [[-0.6, -1], [-0.42, -1], [-0.42, 0.2], [0.75, 0.6], [-0.42, 1], [-0.6, 1]],
+  peak: () => [[-1, -0.6], [1, -0.6], [0.55, 0.25], [0.3, -0.05], [-0.15, 0.75]],
+  crown: () => [[-0.9, -0.6], [0.9, -0.6], [0.9, 0.6], [0.45, 0.05], [0, 0.7], [-0.45, 0.05], [-0.9, 0.6]],
+  gem: () => [[0, -1], [0.95, 0.3], [0.55, 0.75], [-0.55, 0.75], [-0.95, 0.3]],
+  dot: () => Array.from({ length: 36 }, (_, i) => [Math.cos((i / 36) * Math.PI * 2), Math.sin((i / 36) * Math.PI * 2)]),
+};
+
+function markerOutline(shape) {
+  const pts = MARKER_SHAPES[shape]();
+  return THREE.ShapeUtils.isClockWise(pts.map(([x, y]) => new THREE.Vector2(x, y))) ? pts.reverse() : pts;
+}
+
+// Marker prism standing on the terrain: flat top `raise` mm above the highest ground under it,
 // bottom sunk below the lowest so it fuses with the terrain. Welded, outward-facing triangles.
-function starGeometry(cx, cy, R, raise, m) {
-  const pts = 5, r = R * 0.45;
+function markerGeometry(shape, cx, cy, R, raise, m) {
   cx = clamp(cx, R + 0.3, m.W - R - 0.3); cy = clamp(cy, R + 0.3, m.H - R - 0.3);
-  const rim = [];
-  for (let i = 0; i < pts * 2; i++) {
-    const ang = Math.PI / 2 + (i * Math.PI) / pts, rr = i % 2 ? r : R;
-    rim.push([cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr]);
-  }
+  const rim = markerOutline(shape).map(([x, y]) => [cx + x * R, cy + y * R]);
   const hs = [m.heightAt(cx, cy), ...rim.map(([x, y]) => m.heightAt(x, y))];
   const zt = Math.max(...hs) + raise, zb = Math.max(0.2, Math.min(...hs) - 0.6);
-  const L = rim.length, CT = 2 * L, CB = 2 * L + 1, pos = new Float32Array((2 * L + 2) * 3);
+  const L = rim.length, pos = new Float32Array(2 * L * 3);
   rim.forEach(([x, y], i) => { pos.set([x, y, zt], i * 3); pos.set([x, y, zb], (L + i) * 3); });
-  pos.set([cx, cy, zt], CT * 3); pos.set([cx, cy, zb], CB * 3);
   const idx = [];
+  for (let [a, b, c] of THREE.ShapeUtils.triangulateShape(rim.map(([x, y]) => new THREE.Vector2(x, y)), [])) {
+    const area = (rim[b][0] - rim[a][0]) * (rim[c][1] - rim[a][1]) - (rim[c][0] - rim[a][0]) * (rim[b][1] - rim[a][1]);
+    if (area < 0) [b, c] = [c, b];
+    idx.push(a, b, c, L + a, L + c, L + b);         // top, bottom
+  }
   for (let i = 0; i < L; i++) {
     const j = (i + 1) % L;
-    idx.push(CT, i, j);                              // top
-    idx.push(CB, L + j, L + i);                      // bottom
     idx.push(L + i, L + j, j, L + i, j, i);          // side wall
   }
   return { pos, idx: new Uint32Array(idx) };
@@ -778,29 +831,53 @@ function concatGeoms(list) {
 }
 
 // Welded, indexed text mesh scaled to fit `maxW`, left edge at x=0, baseline at y=0, z from 0 to `depth`.
-function textGeometry(str, size, depth, maxW) {
+// With `outline` ({ width, height }), also returns a lower border around the letters: copies of the glyphs
+// shifted `width` mm in a ring of directions. Each copy is a closed solid; slicers merge them into one outline.
+function textGeometry(str, size, depth, maxW, outline) {
   const clean = [...str].map((c) => (font.data.glyphs[c] ? c : ' ')).join('').trim();
   if (!clean) return null;
-  let g = new TextGeometry(clean, { font, size, height: depth, curveSegments: 6, bevelEnabled: false });
-  g.deleteAttribute('normal'); g.deleteAttribute('uv');
-  g = mergeVertices(g, 1e-4);
-  g.computeBoundingBox();
-  const bb = g.boundingBox, w = bb.max.x - bb.min.x, s = w > maxW ? maxW / w : 1;
-  g.translate(-bb.min.x, 0, 0);
-  g.scale(s, s, 1);
-  return { pos: new Float32Array(g.attributes.position.array), idx: Uint32Array.from(g.index.array), width: w * s, size: size * s };
+  const solid = new TextGeometry(clean, { font, size, height: depth, curveSegments: 6, bevelEnabled: false });
+  solid.computeBoundingBox();
+  const bb = solid.boundingBox, w = bb.max.x - bb.min.x, s = w > maxW ? maxW / w : 1;
+  const finish = (g) => {
+    g.deleteAttribute('normal'); g.deleteAttribute('uv');
+    g = mergeVertices(g, 1e-4);
+    g.translate(-bb.min.x, 0, 0);
+    g.scale(s, s, 1);
+    return { pos: new Float32Array(g.attributes.position.array), idx: Uint32Array.from(g.index.array) };
+  };
+  const out = { ...finish(solid), width: w * s, size: size * s, outline: null };
+  if (outline) {
+    const low = finish(new TextGeometry(clean, { font, size, height: outline.height, curveSegments: 4, bevelEnabled: false }));
+    const rings = outline.width > 1 ? [outline.width, outline.width / 2] : [outline.width];
+    const copies = [];
+    for (const r of rings) {
+      for (let i = 0; i < 8; i++) {
+        const dx = Math.cos((i / 8) * Math.PI * 2) * r, dy = Math.sin((i / 8) * Math.PI * 2) * r;
+        const pos = low.pos.slice();
+        for (let k = 0; k < pos.length; k += 3) { pos[k] += dx; pos[k + 1] += dy; }
+        copies.push({ pos, idx: low.idx });
+      }
+    }
+    out.outline = concatGeoms(copies);
+  }
+  return out;
 }
 
 function labelGeometry(m, P) {
-  const D = P.plateD, thick = Math.max(P.base, 2);
+  const D = P.plateD, thick = Math.max(m.base, 2);
   const plate = boxGeometry(0, -D, 0, m.W, 0.4, thick); // overlaps the terrain wall slightly so they fuse
-  if (!font) return { plate, label: null };
+  if (!font) return { plate, label: null, labelOutline: null };
   const pad = D * 0.16, maxW = m.W - 2 * pad, depth = P.routeH + 0.3, z0 = thick - 0.3;
-  const title = P.title && textGeometry(P.title, D * 0.34, depth, maxW);
-  const details = P.details && textGeometry(P.details, D * (title ? 0.19 : 0.3), depth, maxW);
+  const outline = P.outlineOn ? { width: P.outlineW, height: 0.3 + (depth - 0.3) * 0.5 } : null;
+  const title = P.title && textGeometry(P.title, D * 0.34, depth, maxW, outline);
+  const details = P.details && textGeometry(P.details, D * (title ? 0.19 : 0.3), depth, maxW, outline);
   const place = (g, baseY) => {
     const dx = (m.W - g.width) / 2;
-    for (let k = 0; k < g.pos.length; k += 3) { g.pos[k] += dx; g.pos[k + 1] += baseY; g.pos[k + 2] += z0; }
+    for (const geo of [g, g.outline]) {
+      if (!geo) continue;
+      for (let k = 0; k < geo.pos.length; k += 3) { geo.pos[k] += dx; geo.pos[k + 1] += baseY; geo.pos[k + 2] += z0; }
+    }
   };
   if (title && details) {
     const gap = (D - 2 * pad - title.size - details.size) / 2;
@@ -810,7 +887,7 @@ function labelGeometry(m, P) {
     const g = title || details;
     place(g, -D / 2 - g.size / 2);
   }
-  return { plate, label: concatGeoms([title, details]) };
+  return { plate, label: concatGeoms([title, details]), labelOutline: concatGeoms([title?.outline, details?.outline]) };
 }
 
 function pointAt(t, d) {
@@ -923,7 +1000,10 @@ const marker = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.Mes
 marker.visible = false;
 scene.add(marker);
 
-const bandUniforms = { uBandColors: { value: new Float32Array(24) }, uBandTops: { value: new Float32Array(8).fill(1e9) }, uBandCount: { value: 1 } };
+const bandUniforms = {
+  uBandColors: { value: new Float32Array(24) }, uBandTops: { value: new Float32Array(8).fill(1e9) }, uBandCount: { value: 1 },
+  uWaterTop: { value: -1 }, uWaterColor: { value: new THREE.Color('#2f7fd8') },
+};
 const terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
 terrainMat.onBeforeCompile = (shader) => {
   Object.assign(shader.uniforms, bandUniforms);
@@ -931,10 +1011,11 @@ terrainMat.onBeforeCompile = (shader) => {
     .replace('#include <common>', '#include <common>\nvarying float vZ;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvZ = position.z;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying float vZ;\nuniform vec3 uBandColors[8];\nuniform float uBandTops[8];\nuniform int uBandCount;')
+    .replace('#include <common>', '#include <common>\nvarying float vZ;\nuniform vec3 uBandColors[8];\nuniform float uBandTops[8];\nuniform int uBandCount;\nuniform float uWaterTop;\nuniform vec3 uWaterColor;')
     .replace('#include <color_fragment>', `#include <color_fragment>
       vec3 bandCol = uBandColors[0];
       for (int i = 1; i < 8; i++) { if (i < uBandCount && vZ >= uBandTops[i - 1]) bandCol = uBandColors[i]; }
+      if (vZ < uWaterTop) bandCol = uWaterColor;
       diffuseColor.rgb = bandCol;`);
 };
 
@@ -951,6 +1032,7 @@ function updateScene(m) {
   modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.terrain), terrainMat));
   if (m.parts.plate) modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.plate), terrainMat));
   if (m.parts.label) modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.label), new THREE.MeshStandardMaterial({ color: m.P.labelColor, roughness: 0.6 })));
+  if (m.parts.labelOutline) modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.labelOutline), new THREE.MeshStandardMaterial({ color: m.P.outlineColor, roughness: 0.6 })));
   for (const r of m.parts.ribbons) {
     modelGroup.add(new THREE.Mesh(toBufferGeometry(r.geom), new THREE.MeshStandardMaterial({ color: r.color, roughness: 0.6 })));
   }
@@ -1023,6 +1105,8 @@ function updateBandUniforms() {
     bandUniforms.uBandColors.value.set([c.r, c.g, c.b], i * 3);
     bandUniforms.uBandTops.value[i] = i < tops.length ? tops[i] : 1e9;
   }
+  bandUniforms.uWaterTop.value = state.model ? state.model.waterTop : -1;
+  bandUniforms.uWaterColor.value.set($('waterColor').value);
 }
 
 function renderBands() {
@@ -1053,13 +1137,18 @@ function renderBands() {
     }
     wrap.append(row);
   }
-  const sw = $('swaps');
-  if (!m || count < 2) { sw.innerHTML = '<span class="empty">One color, no filament swaps.</span>'; return; }
-  sw.innerHTML = swapLines().map(([z, i]) => `<div><span>Change to color ${i + 1}</span><b>Z = ${z.toFixed(2)} mm</b></div>`).join('');
+  const sw = $('swaps'), lines = swapLines();
+  if (!m || !lines.length) { sw.innerHTML = '<span class="empty">One color, no filament swaps.</span>'; return; }
+  sw.innerHTML = `<div><span>Start with ${m.waterTop > 0 ? 'water' : 'color 1'}</span><b>Z = 0</b></div>` +
+    lines.map((l) => `<div><span>Change to ${l.name}</span><b>Z = ${l.z.toFixed(2)} mm</b></div>`).join('');
 }
 
+// Filament changes in print order: water → land (when the map has water), then each terrain band
 function swapLines() {
-  return bandTops().map((z, i) => [z, i + 1]);
+  const m = state.model, out = [];
+  if (m && m.waterTop > 0) out.push({ z: m.waterTop, name: 'color 1 (land)', color: state.bandColors[0] });
+  bandTops().forEach((z, i) => out.push({ z, name: `color ${i + 2}`, color: state.bandColors[i + 1] }));
+  return out;
 }
 
 $('bandCount').onchange = () => {
@@ -1087,6 +1176,7 @@ function applyColorTheme(th) {
   for (const t of state.tracks) t.color = t.role === 'highlight' ? th.segs[h++ % th.segs.length] : th.route;
   state.segments.forEach((sg, i) => { sg.color = th.segs[(h + i) % th.segs.length]; });
   $('labelColor').value = th.label;
+  $('waterColor').value = th.water;
   renderThemes(); renderTracks(); renderSegments(); renderBands(); updateBandUniforms();
   rebuild(); drawProfile();
 }
@@ -1240,7 +1330,8 @@ function drawProfile() {
     ctx.fillRect(X(a), PAD.t, X(b) - X(a), ph);
     ctx.fillStyle = sg.color;
     ctx.fillRect(X(a), PAD.t, X(b) - X(a), 4);
-    if (readSettings().stars) for (const d of [a, b]) drawStar(ctx, X(d), PAD.t + 9, 7, sg.color, text);
+    const marker = readSettings().marker;
+    if (MARKER_SHAPES[marker]) for (const d of [a, b]) drawMarker(ctx, marker, X(d), PAD.t + 9, 7, sg.color, text);
   }
 
   // area + line
@@ -1289,12 +1380,9 @@ function luminance(hex) {
   return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
 }
 
-function drawStar(ctx, x, y, R, fill, stroke) {
+function drawMarker(ctx, shape, x, y, R, fill, stroke) {
   ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const ang = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? R * 0.45 : R;
-    ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(ang) * rr, y + Math.sin(ang) * rr);
-  }
+  markerOutline(shape).forEach(([px, py], i) => ctx[i ? 'lineTo' : 'moveTo'](x + px * R, y - py * R));
   ctx.closePath();
   ctx.fillStyle = fill; ctx.fill();
   ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke();
@@ -1409,6 +1497,7 @@ new ResizeObserver(drawProfile).observe(prof);
 function exportGroups() {
   const m = state.model, groups = [{ name: 'Terrain', color: state.bandColors[0], geoms: [m.parts.terrain, m.parts.plate].filter(Boolean) }];
   if (m.parts.label) groups.push({ name: 'Ride details', color: m.P.labelColor.toLowerCase(), geoms: [m.parts.label] });
+  if (m.parts.labelOutline) groups.push({ name: 'Ride details outline', color: m.P.outlineColor.toLowerCase(), geoms: [m.parts.labelOutline] });
   const byColor = new Map();
   for (const r of m.parts.ribbons) {
     if (!byColor.has(r.color)) byColor.set(r.color, { names: new Set(), color: r.color, geoms: [] });
@@ -1489,10 +1578,11 @@ function readme(groups) {
     `Model size: ${m.W.toFixed(1)} x ${m.H.toFixed(1)} mm, ${m.maxZ.toFixed(1)} mm tall.`, '',
     'Parts:', ...groups.map((g, i) => `  ${i + 1}. ${g.name} (${g.color})`), '',
   ];
-  if (state.bandFracs.length) {
+  const swaps = swapLines();
+  if (swaps.length) {
     lines.push('Terrain color changes (add a filament change / pause at these heights):');
-    lines.push(`  Start with color 1 (${state.bandColors[0]})`);
-    for (const [z, i] of swapLines()) lines.push(`  Z = ${z.toFixed(2)} mm -> color ${i + 1} (${state.bandColors[i]})`);
+    lines.push(m.waterTop > 0 ? `  Start with water (${m.P.waterColor})` : `  Start with color 1 (${state.bandColors[0]})`);
+    for (const l of swaps) lines.push(`  Z = ${l.z.toFixed(2)} mm -> ${l.name} (${l.color})`);
   }
   return lines.join('\n');
 }
@@ -1536,8 +1626,17 @@ document.querySelectorAll('[data-refetch]').forEach((el) => el.addEventListener(
 
 document.querySelectorAll('[data-label]').forEach((el) => el.addEventListener('input', () => { el.dataset.edited = '1'; }));
 $('labelReset').onclick = () => { fillLabelDefaults(true); rebuild(); };
-new FontLoader().load(FONT_URL, (f) => { font = f; rebuild(); }, undefined,
-  () => setStatus('Could not load the label font. The plate will print without text.', true));
+const fontCache = new Map();
+function useFont(key) {
+  if (!fontCache.has(key)) {
+    fontCache.set(key, new Promise((resolve, reject) => new FontLoader().load(FONT_BASE + key + '.typeface.json', resolve, undefined, reject)));
+  }
+  fontCache.get(key)
+    .then((f) => { if ($('labelFont').value === key) { font = f; rebuild(); } })
+    .catch(() => { fontCache.delete(key); setStatus('Could not load that font. The label keeps its previous font.', true); });
+}
+$('labelFont').onchange = () => useFont($('labelFont').value);
+useFont($('labelFont').value);
 
 $('drop').onclick = () => $('file').click();
 $('landingDrop').onclick = () => $('file').click();
