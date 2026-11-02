@@ -1,0 +1,1306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ride Relief</title>
+<meta name="description" content="Turn your Strava rides and routes into 3D-printable topographic maps. Color the terrain, mark your favorite segments, export STL or 3MF.">
+<style>
+  :root {
+    --bg: #f4f2ee; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6a66; --border: #dedbd4;
+    --input: #faf9f6; --accent: #e8590c; --accent-text: #ffffff; --view: #e9e6df; --danger: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --panel: #1e1e1c; --text: #ecebe7; --muted: #9c9a94; --border: #33322f;
+      --input: #262624; --accent: #ff7a33; --accent-text: #1a0d05; --view: #1a1a19; --danger: #ff6b5e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151514; --panel: #1e1e1c; --text: #ecebe7; --muted: #9c9a94; --border: #33322f;
+    --input: #262624; --accent: #ff7a33; --accent-text: #1a0d05; --view: #1a1a19; --danger: #ff6b5e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-columns: 350px 1fr; height: 100vh; overflow: hidden;
+  }
+  aside { background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 16px 32px; }
+  h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h1 span { color: var(--accent); }
+  .tag { color: var(--muted); margin: 0 0 14px; font-size: 13px; }
+  section { border-top: 1px solid var(--border); padding: 14px 0 6px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  h2 b { background: var(--accent); color: var(--accent-text); border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; font-size: 11px; }
+  label.row { display: grid; grid-template-columns: 1fr 92px; align-items: center; gap: 8px; margin: 6px 0; }
+  label.row small { color: var(--muted); display: block; font-size: 11.5px; }
+  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .theme { padding: 6px; text-align: left; font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .theme.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .theme .sw { position: relative; height: 26px; border-radius: 5px; overflow: hidden; }
+  .theme .sw i { position: absolute; left: 8%; right: 8%; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; }
+  .theme .sw b { position: absolute; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,.25); }
+  label.stack { display: block; margin: 8px 0; }
+  label.stack input { margin-top: 3px; }
+  input[type=number], input[type=text], select {
+    width: 100%; background: var(--input); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 7px; font: inherit;
+  }
+  input[type=color] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; flex: none; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  button {
+    font: inherit; border-radius: 7px; border: 1px solid var(--border); background: var(--input); color: var(--text);
+    padding: 7px 12px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.x { border: none; background: none; color: var(--muted); padding: 2px 6px; font-size: 16px; line-height: 1; }
+  button.x:hover { color: var(--danger); }
+  .drop {
+    border: 1.5px dashed var(--border); border-radius: 10px; padding: 16px 12px; text-align: center; cursor: pointer;
+    color: var(--muted); transition: border-color .15s, background .15s;
+  }
+  .drop:hover, body.dragging .drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .drop strong { color: var(--text); display: block; margin-bottom: 2px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .help { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .help summary { cursor: pointer; }
+  .help ol { padding-left: 18px; margin: 6px 0; }
+  .list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .item { display: flex; align-items: center; gap: 6px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 5px 6px; }
+  .item input[type=text] { border: none; background: transparent; padding: 3px 4px; min-width: 0; flex: 1; }
+  .item select { width: auto; padding: 3px 4px; font-size: 12px; }
+  .item .meta { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .empty { font-size: 12.5px; color: var(--muted); font-style: italic; }
+  .swaps { font-size: 12.5px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .swaps div { display: flex; justify-content: space-between; gap: 8px; }
+  .band { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12.5px; }
+  .band .lbl { flex: 1; }
+  .band input[type=number] { width: 78px; }
+  .stats { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .warn { color: var(--danger); }
+  main { display: grid; grid-template-rows: 1fr 210px; min-width: 0; min-height: 0; }
+  #view { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+  #view canvas { display: block; }
+  #overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); pointer-events: none; padding: 16px; }
+  #overlay h3 { color: var(--text); margin: 0 0 4px; font-size: 18px; }
+  #status { position: absolute; left: 12px; top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
+  #legend { position: absolute; right: 12px; top: 12px; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px; padding: 6px 10px; }
+  #profileWrap { background: var(--panel); border-top: 1px solid var(--border); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+  .phead { display: flex; align-items: center; gap: 10px; padding: 8px 12px 4px; flex-wrap: wrap; font-size: 12.5px; }
+  .phead .title { font-weight: 600; }
+  .phead select { width: auto; padding: 3px 6px; }
+  .phead .hint { color: var(--muted); }
+  #selForm { display: none; align-items: center; gap: 6px; margin-left: auto; }
+  #selForm.on { display: flex; }
+  #selForm input[type=text] { width: 150px; padding: 3px 6px; }
+  #selForm button { padding: 4px 10px; }
+  #profile { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; min-height: 0; }
+  footer { font-size: 11px; color: var(--muted); margin-top: 18px; }
+  footer a { color: inherit; }
+  @media (max-width: 820px) {
+    body { display: block; height: auto; overflow: auto; }
+    aside { border-right: none; border-bottom: 1px solid var(--border); }
+    main { grid-template-rows: 60vh 230px; }
+    #selForm { margin-left: 0; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js"
+} }
+</script>
+</head>
+<body>
+<aside>
+  <h1>Ride <span>Relief</span></h1>
+  <p class="tag">Turn your rides into 3D-printable topo maps.</p>
+
+  <section>
+    <h2><b>1</b> Add rides</h2>
+    <div class="drop" id="drop">
+      <strong>Drop GPX files here</strong>or click to choose (Strava rides or routes)
+    </div>
+    <input type="file" id="file" accept=".gpx,application/gpx+xml" multiple hidden>
+    <div class="btns"><button id="demo">Try a demo loop</button></div>
+    <details class="help">
+      <summary>How do I get a GPX from Strava?</summary>
+      <ol>
+        <li><b>Activity:</b> open the ride on strava.com → <i>⋯</i> menu → <i>Export GPX</i>.</li>
+        <li><b>Route:</b> open the route → <i>Export GPX</i> (or <i>⋯</i> → Export GPX).</li>
+        <li>Drop one or more files here. Set a file to <i>Highlight</i> to show it as a raised, colored segment.</li>
+      </ol>
+      Everything runs in your browser. Your files are never uploaded.
+    </details>
+    <div class="list" id="tracks"></div>
+  </section>
+
+  <section>
+    <h2><b>2</b> Map &amp; print size</h2>
+    <label class="row">Map shape
+      <select id="shape" data-refetch>
+        <option value="fit">Fit to ride</option>
+        <option value="1">Square</option>
+        <option value="1.3333">Landscape 4:3</option>
+        <option value="0.75">Portrait 3:4</option>
+      </select>
+    </label>
+    <label class="row"><span>Margin around ride<small>% of ride size</small></span><input type="number" id="margin" value="12" min="0" max="200" step="1" data-refetch></label>
+    <label class="row"><span>Model width<small>mm (longest printer axis)</small></span><input type="number" id="width" value="150" min="30" max="400" step="5" data-rebuild></label>
+    <label class="row"><span>Vertical exaggeration<small>1 = true scale</small></span><input type="number" id="exag" value="2" min="0.2" max="20" step="0.1" data-rebuild></label>
+    <label class="row"><span>Base thickness<small>mm below lowest point</small></span><input type="number" id="base" value="3" min="0.6" max="30" step="0.2" data-rebuild></label>
+    <label class="row"><span>Mesh detail<small>grid cells across</small></span><input type="number" id="detail" value="300" min="40" max="600" step="10" data-rebuild></label>
+    <label class="row"><span>Flatten sea / lakes below 0 m</span><input type="checkbox" id="ocean" checked data-rebuild style="justify-self:end"></label>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section>
+    <h2><b>3</b> Route line</h2>
+    <label class="row"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
+    <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
+    <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
+  </section>
+
+  <section>
+    <h2><b>4</b> Ride details</h2>
+    <label class="row"><span>Label plate<small>raised text along the front edge</small></span><input type="checkbox" id="labelOn" checked data-rebuild style="justify-self:end"></label>
+    <label class="stack">Title<input type="text" id="labelTitle" data-rebuild data-label></label>
+    <label class="stack">Details<input type="text" id="labelDetails" data-rebuild data-label></label>
+    <label class="row"><span>Plate depth<small>mm</small></span><input type="number" id="plateD" value="18" min="8" max="60" step="1" data-rebuild></label>
+    <label class="row"><span>Text color</span><input type="color" id="labelColor" value="#ffffff" data-rebuild style="justify-self:end"></label>
+    <div class="btns"><button id="labelReset">Reset to ride stats</button></div>
+  </section>
+
+  <section>
+    <h2><b>5</b> Colors</h2>
+    <div class="themes" id="themes"></div>
+    <label class="row"><span>Color bands<small>filament swaps by height</small></span>
+      <select id="bandCount">
+        <option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option>
+      </select>
+    </label>
+    <div id="bands"></div>
+    <div class="swaps" id="swaps"></div>
+    <p class="help">On a single-extruder printer, add a filament change (pause) at each height above. With an AMS or MMU, print the 3MF and give the route and segments their own filaments.</p>
+  </section>
+
+  <section>
+    <h2><b>6</b> Favorite segments</h2>
+    <p class="help" style="margin-top:0">Drag across the elevation profile below to select a stretch, then name it and pick a color.</p>
+    <div class="list" id="segments"></div>
+  </section>
+
+  <section>
+    <h2><b>7</b> Export</h2>
+    <div class="btns">
+      <button class="primary" id="ex3mf" disabled>3MF (multi-color)</button>
+      <button id="exStl" disabled>STL (single)</button>
+      <button id="exZip" disabled>STL per color (.zip)</button>
+    </div>
+    <p class="help">3MF keeps the terrain, route and each segment color as separate parts of one object, ready for Bambu Studio, PrusaSlicer or Orca.</p>
+  </section>
+
+  <footer>
+    Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles on AWS</a>
+    (Mapzen; <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">data sources</a>).
+    Not affiliated with Strava.
+  </footer>
+</aside>
+
+<main>
+  <div id="view">
+    <div id="overlay"><div><h3>Drop a ride to start</h3>Your GPX becomes a printable relief map. You can also try the demo loop.</div></div>
+    <div id="status"></div>
+    <div id="legend">Drag to orbit · scroll to zoom · right-drag to pan</div>
+  </div>
+  <div id="profileWrap">
+    <div class="phead">
+      <span class="title">Elevation profile</span>
+      <select id="profTrack"></select>
+      <select id="units"><option value="km">km / m</option><option value="mi">mi / ft</option></select>
+      <span class="hint" id="hoverInfo">Drag to select a segment</span>
+      <div id="selForm">
+        <span id="selInfo"></span>
+        <input type="text" id="segName" placeholder="Segment name">
+        <input type="color" id="segColor">
+        <button class="primary" id="segAdd">Add segment</button>
+        <button class="x" id="segCancel" title="Clear selection">×</button>
+      </div>
+    </div>
+    <canvas id="profile"></canvas>
+  </div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { zipSync, strToU8 } from 'fflate';
+
+const $ = (id) => document.getElementById(id);
+const TILE_URL = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+const EARTH = 40075016.686;
+const FONT_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json';
+let font = null;
+const TRACK_COLORS = ['#e8590c', '#1c7ed6', '#c2255c', '#2b8a3e', '#7048e8', '#0c8599'];
+const SEG_COLORS = ['#fab005', '#228be6', '#e64980', '#ffffff', '#7950f2', '#12b886', '#f03e3e', '#40c057'];
+const BAND_DEFAULTS = ['#3d5a3a', '#6f8f4e', '#c8b47a', '#9a7a5a', '#d9d4c7', '#ffffff'];
+// Terrain ramps (low → high) paired with a route color from the opposite side of the color wheel
+const THEMES = [
+  { name: 'Alpine Sunset', bands: ['#0b3c5d', '#1d6a8a', '#5fa8c8', '#e4f3f8'], route: '#ff7a1a', segs: ['#ffd23f', '#ff4f79', '#ffffff'], label: '#ff7a1a' },
+  { name: 'Desert Bloom', bands: ['#6b2f17', '#b5653a', '#dda15e', '#f6e7c8'], route: '#14b8a6', segs: ['#2563eb', '#a7f3d0', '#ffffff'], label: '#14b8a6' },
+  { name: 'Forest & Flame', bands: ['#163026', '#2f6b45', '#6fa86b', '#d4ebc2'], route: '#e0245e', segs: ['#ff9f1c', '#ffd6e0', '#ffffff'], label: '#ffffff' },
+  { name: 'Lavender Gold', bands: ['#2d1b4e', '#553c8b', '#9a7fd1', '#ebe3fa'], route: '#ffcc00', segs: ['#ff8c42', '#7cffcb', '#ffffff'], label: '#ffcc00' },
+  { name: 'Ocean Coral', bands: ['#03363f', '#0a7b83', '#4fc0bf', '#d2f5ef'], route: '#ff6b5b', segs: ['#ffc145', '#ff99c8', '#ffffff'], label: '#ff6b5b' },
+  { name: 'Volcanic Ice', bands: ['#1c1416', '#5a1f1b', '#a3402a', '#e0a07a'], route: '#22d3ee', segs: ['#a3e635', '#e0f2fe', '#ffffff'], label: '#22d3ee' },
+];
+
+const state = {
+  tracks: [], segments: [], dem: null, region: null, model: null,
+  bandColors: [...BAND_DEFAULTS], bandFracs: [0.25, 0.5, 0.75],
+  profileTrackId: null, sel: null, hover: null, nextId: 1, lastFit: null, theme: null,
+};
+
+// ---------- geo helpers ----------
+const toMX = (lon) => (lon + 180) / 360;
+const toMY = (lat) => { const s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); };
+const fromMY = (my) => Math.atan(Math.sinh(Math.PI * (1 - 2 * my))) * 180 / Math.PI;
+function haversineKm(a1, o1, a2, o2) {
+  const r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
+  const h = Math.sin(dA / 2) ** 2 + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(dO / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'ride';
+const units = () => $('units').value === 'mi'
+  ? { d: 0.621371, dl: 'mi', e: 3.28084, el: 'ft' } : { d: 1, dl: 'km', e: 1, el: 'm' };
+
+function setStatus(msg, isError) {
+  const el = $('status');
+  el.style.display = msg ? 'block' : 'none';
+  el.textContent = msg || '';
+  el.classList.toggle('warn', !!isError);
+}
+
+// ---------- GPX loading ----------
+function parseGPX(text, fileName) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error(`${fileName}: not a valid GPX file`);
+  let pts = [...doc.getElementsByTagName('trkpt')];
+  if (!pts.length) pts = [...doc.getElementsByTagName('rtept')];
+  if (pts.length < 2) throw new Error(`${fileName}: no track points found`);
+  const lat = [], lon = [], ele = [];
+  let start = null, end = null;
+  for (const p of pts) {
+    const la = parseFloat(p.getAttribute('lat')), lo = parseFloat(p.getAttribute('lon'));
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    const e = parseFloat(p.getElementsByTagName('ele')[0]?.textContent);
+    lat.push(la); lon.push(lo); ele.push(isFinite(e) ? e : 0);
+    const tm = p.getElementsByTagName('time')[0]?.textContent;
+    if (tm) { start ??= tm; end = tm; }
+  }
+  start ??= doc.querySelector('metadata > time')?.textContent ?? null;
+  const name = doc.getElementsByTagName('name')[0]?.textContent?.trim() || fileName.replace(/\.gpx$/i, '');
+  return { name, lat, lon, ele, start, end };
+}
+
+function addTrack({ name, lat, lon, ele, start = null, end = null }, role = 'route') {
+  const L = [], O = [], E = [], D = [], MX = [], MY = [];
+  let dist = 0;
+  for (let i = 0; i < lat.length; i++) {
+    if (L.length) {
+      const step = haversineKm(L[L.length - 1], O[O.length - 1], lat[i], lon[i]);
+      if (step < 0.002) continue; // drop near-duplicate points (<2 m)
+      dist += step;
+    }
+    L.push(lat[i]); O.push(lon[i]); E.push(ele[i]); D.push(dist);
+    MX.push(toMX(lon[i])); MY.push(toMY(lat[i]));
+  }
+  if (L.length < 2) return;
+  const id = state.nextId++;
+  const color = state.theme ? state.theme.route : TRACK_COLORS[state.tracks.length % TRACK_COLORS.length];
+  state.tracks.push({
+    id, name, role, color, lat: L, lon: O, ele: E, dist: D, mx: MX, my: MY, total: dist, demEle: null, x: null, y: null,
+    start, end, hasEle: E.some((e) => e !== 0),
+  });
+  if (!state.profileTrackId) state.profileTrackId = id;
+}
+
+async function handleFiles(files) {
+  const errors = [];
+  for (const f of files) {
+    try { addTrack(parseGPX(await f.text(), f.name)); } catch (e) { errors.push(e.message); }
+  }
+  if (errors.length) setStatus(errors.join(' · '), true);
+  afterTracksChanged();
+}
+
+function demoTrack() {
+  // A synthetic loop around Mt. Tamalpais, CA
+  const lat = [], lon = [], ele = [];
+  for (let i = 0; i <= 400; i++) {
+    const t = (i / 400) * Math.PI * 2;
+    lat.push(37.921 + 0.024 * Math.sin(t) + 0.004 * Math.sin(5 * t));
+    lon.push(-122.585 + 0.036 * Math.cos(t) + 0.005 * Math.cos(3 * t));
+    ele.push(0);
+  }
+  return { name: 'Demo loop: Mt. Tam', lat, lon, ele };
+}
+
+// ---------- elevation tiles ----------
+const tileCache = new Map();
+const tileCanvas = document.createElement('canvas');
+tileCanvas.width = tileCanvas.height = 256;
+const tileCtx = tileCanvas.getContext('2d', { willReadFrequently: true });
+
+async function loadTile(z, x, y) {
+  const key = `${z}/${x}/${y}`;
+  if (!tileCache.has(key)) {
+    tileCache.set(key, (async () => {
+      const res = await fetch(TILE_URL(z, x, y));
+      if (!res.ok) throw new Error(`tile ${key}: HTTP ${res.status}`);
+      const bmp = await createImageBitmap(await res.blob());
+      tileCtx.clearRect(0, 0, 256, 256);
+      tileCtx.drawImage(bmp, 0, 0);
+      const px = tileCtx.getImageData(0, 0, 256, 256).data;
+      const out = new Float32Array(65536);
+      for (let i = 0; i < 65536; i++) out[i] = px[i * 4] * 256 + px[i * 4 + 1] + px[i * 4 + 2] / 256 - 32768;
+      return out;
+    })().catch((e) => { tileCache.delete(key); throw e; }));
+  }
+  return tileCache.get(key);
+}
+
+function computeRegion() {
+  let mx0 = Infinity, my0 = Infinity, mx1 = -Infinity, my1 = -Infinity;
+  for (const t of state.tracks) for (let i = 0; i < t.mx.length; i++) {
+    mx0 = Math.min(mx0, t.mx[i]); mx1 = Math.max(mx1, t.mx[i]);
+    my0 = Math.min(my0, t.my[i]); my1 = Math.max(my1, t.my[i]);
+  }
+  const margin = clamp(parseFloat($('margin').value) || 0, 0, 200) / 100;
+  let w = mx1 - mx0, h = my1 - my0;
+  const minSize = 1e-5; // ~400 m, so tiny rides still get some terrain
+  const pad = Math.max(w, h, minSize) * margin;
+  let cx = (mx0 + mx1) / 2, cy = (my0 + my1) / 2;
+  w = Math.max(w + 2 * pad, minSize); h = Math.max(h + 2 * pad, minSize);
+  const aspect = parseFloat($('shape').value);
+  if (isFinite(aspect)) {
+    if (w / h < aspect) w = h * aspect; else h = w / aspect;
+  }
+  return { mx0: cx - w / 2, mx1: cx + w / 2, my0: cy - h / 2, my1: cy + h / 2 };
+}
+
+let demToken = 0;
+async function loadTerrain() {
+  if (!state.tracks.length) return;
+  const token = ++demToken;
+  const r = computeRegion();
+  let z = 14, tx0, tx1, ty0, ty1;
+  for (; z >= 1; z--) {
+    const n = 2 ** z;
+    tx0 = Math.floor(r.mx0 * n); tx1 = Math.floor(r.mx1 * n);
+    ty0 = Math.floor(r.my0 * n); ty1 = Math.floor(r.my1 * n);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 30) break;
+  }
+  const cols = tx1 - tx0 + 1, rows = ty1 - ty0 + 1;
+  setStatus(`Loading elevation (${cols * rows} tiles, zoom ${z})…`);
+  const w = cols * 256, h = rows * 256, data = new Float32Array(w * h);
+  const jobs = [];
+  let failed = 0;
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    jobs.push(loadTile(z, tx, ty).then((tile) => {
+      const ox = (tx - tx0) * 256, oy = (ty - ty0) * 256;
+      for (let row = 0; row < 256; row++) data.set(tile.subarray(row * 256, row * 256 + 256), (oy + row) * w + ox);
+    }).catch(() => { failed++; }));
+  }
+  await Promise.all(jobs);
+  if (token !== demToken) return;
+  if (failed === jobs.length) { setStatus('Could not load elevation data. Check your connection and try again.', true); return; }
+  state.dem = { z, tx0, ty0, w, h, data, tiles: jobs.length };
+  state.region = r;
+  setStatus(failed ? `${failed} elevation tile(s) failed to load. Parts of the map may be flat.` : '', !!failed);
+  rebuild();
+}
+
+function demSample(mx, my) {
+  const d = state.dem, n = 256 * 2 ** d.z;
+  const px = clamp(mx * n - d.tx0 * 256 - 0.5, 0, d.w - 1.001);
+  const py = clamp(my * n - d.ty0 * 256 - 0.5, 0, d.h - 1.001);
+  const x0 = Math.floor(px), y0 = Math.floor(py), fx = px - x0, fy = py - y0, i = y0 * d.w + x0, a = d.data;
+  return (a[i] * (1 - fx) + a[i + 1] * fx) * (1 - fy) + (a[i + d.w] * (1 - fx) + a[i + d.w + 1] * fx) * fy;
+}
+
+// ---------- settings ----------
+function readSettings() {
+  const n = (id, def, lo, hi) => { const v = parseFloat($(id).value); return isFinite(v) ? clamp(v, lo, hi) : def; };
+  return {
+    width: n('width', 150, 30, 400), exag: n('exag', 2, 0.2, 20), base: n('base', 3, 0.6, 30),
+    detail: Math.round(n('detail', 300, 40, 600)), routeW: n('routeW', 1.4, 0.4, 6), routeH: n('routeH', 0.8, 0.2, 6),
+    segExtra: n('segExtra', 0.6, 0, 6), flattenOcean: $('ocean').checked,
+    labelOn: $('labelOn').checked, plateD: n('plateD', 18, 8, 60), labelColor: $('labelColor').value,
+    title: $('labelTitle').value.trim(), details: $('labelDetails').value.trim(),
+  };
+}
+
+// ---------- ride details ----------
+function climb(E) {
+  // Count climbing with a 3 m hysteresis so GPS/DEM noise doesn't inflate the total
+  let gain = 0, ref = E[0];
+  for (const e of E) {
+    if (e > ref + 3) { gain += e - ref; ref = e; } else if (e < ref - 3) ref = e;
+  }
+  return gain;
+}
+
+function rideDetails(t) {
+  const u = units(), parts = [`${(t.total * u.d).toFixed(1)} ${u.dl}`];
+  const E = t.hasEle ? t.ele : (t.demEle || t.ele);
+  parts.push(`${Math.round(climb(E) * u.e).toLocaleString('en-US')} ${u.el} climbing`);
+  const s = t.start ? new Date(t.start) : null, e = t.end ? new Date(t.end) : null;
+  if (s && !isNaN(s)) parts.push(s.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
+  if (s && e && e - s > 0) {
+    const mins = Math.round((e - s) / 60000);
+    parts.push(`${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`);
+  }
+  return parts.join('  |  ');
+}
+
+function fillLabelDefaults(force) {
+  const t = state.tracks[0];
+  if (!t) return;
+  for (const [id, val] of [['labelTitle', t.name], ['labelDetails', rideDetails(t)]]) {
+    const el = $(id);
+    if (force || !el.dataset.edited) { el.value = val; delete el.dataset.edited; }
+  }
+}
+
+// ---------- model ----------
+function rebuild() {
+  if (!state.dem || !state.tracks.length) return;
+  const P = readSettings(), r = state.region;
+  const W = P.width, s = W / (r.mx1 - r.mx0), H = (r.my1 - r.my0) * s;
+  const latC = fromMY((r.my0 + r.my1) / 2);
+  const mmPerM = s / (EARTH * Math.cos(latC * Math.PI / 180));
+  const nx = P.detail, ny = Math.max(20, Math.round(P.detail * H / W));
+  const elev = new Float32Array(nx * ny);
+  let minE = Infinity, maxE = -Infinity;
+  for (let j = 0; j < ny; j++) {
+    const my = r.my1 - (j / (ny - 1)) * (r.my1 - r.my0);
+    for (let i = 0; i < nx; i++) {
+      let e = demSample(r.mx0 + (i / (nx - 1)) * (r.mx1 - r.mx0), my);
+      if (P.flattenOcean && e < 0) e = 0;
+      elev[j * nx + i] = e;
+      if (e < minE) minE = e;
+      if (e > maxE) maxE = e;
+    }
+  }
+  const zs = new Float32Array(nx * ny);
+  for (let k = 0; k < zs.length; k++) zs[k] = P.base + (elev[k] - minE) * mmPerM * P.exag;
+  const maxZ = P.base + (maxE - minE) * mmPerM * P.exag;
+  const heightAt = (x, y) => {
+    const gx = clamp(x / W * (nx - 1), 0, nx - 1.001), gy = clamp(y / H * (ny - 1), 0, ny - 1.001);
+    const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j, k = j * nx + i;
+    return (zs[k] * (1 - fx) + zs[k + 1] * fx) * (1 - fy) + (zs[k + nx] * (1 - fx) + zs[k + nx + 1] * fx) * fy;
+  };
+  const model = { W, H, nx, ny, zs, minE, maxE, base: P.base, maxZ, relief: maxZ - P.base, heightAt, P };
+  state.model = model;
+
+  for (const t of state.tracks) {
+    const n = t.mx.length;
+    t.x = new Float32Array(n); t.y = new Float32Array(n); t.demEle = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      t.x[k] = (t.mx[k] - r.mx0) * s;
+      t.y[k] = (r.my1 - t.my[k]) * s;
+      let e = demSample(t.mx[k], t.my[k]);
+      if (P.flattenOcean && e < 0) e = 0;
+      t.demEle[k] = e;
+    }
+  }
+  fillLabelDefaults(false);
+  Object.assign(P, { title: $('labelTitle').value.trim(), details: $('labelDetails').value.trim() });
+
+  model.parts = buildParts(model, P);
+  updateScene(model);
+  renderStats();
+  renderBands();
+  drawProfile();
+  for (const id of ['ex3mf', 'exStl', 'exZip']) $(id).disabled = false;
+}
+
+function mergedIntervals(segs) {
+  const iv = segs.map((s) => [Math.min(s.a, s.b), Math.max(s.a, s.b)]).sort((p, q) => p[0] - q[0]);
+  const out = [];
+  for (const [a, b] of iv) {
+    if (out.length && a <= out[out.length - 1][1]) out[out.length - 1][1] = Math.max(out[out.length - 1][1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
+function buildParts(model, P) {
+  const ribbons = [];
+  const add = (name, color, path, width, raise) => {
+    const geom = ribbonGeometry(path, width, raise, model);
+    if (geom) ribbons.push({ name, color: color.toLowerCase(), geom });
+  };
+  for (const t of state.tracks) {
+    if (t.role === 'highlight') { add(t.name, t.color, pathBetween(t, 0, t.total), P.routeW, P.routeH + P.segExtra); continue; }
+    const segs = state.segments.filter((sg) => sg.trackId === t.id);
+    let cur = 0;
+    for (const [a, b] of mergedIntervals(segs)) {
+      if (a - cur > 1e-4) add(t.name, t.color, pathBetween(t, cur, a), P.routeW, P.routeH);
+      cur = Math.max(cur, b);
+    }
+    if (t.total - cur > 1e-4) add(t.name, t.color, pathBetween(t, cur, t.total), P.routeW, P.routeH);
+    for (const sg of segs) add(sg.name, sg.color, pathBetween(t, Math.min(sg.a, sg.b), Math.max(sg.a, sg.b)), P.routeW, P.routeH + P.segExtra);
+  }
+  const parts = { terrain: terrainGeometry(model), ribbons, plate: null, label: null };
+  if (P.labelOn) Object.assign(parts, labelGeometry(model, P));
+  return parts;
+}
+
+function boxGeometry(x0, y0, z0, x1, y1, z1) {
+  const pos = new Float32Array([x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1]);
+  const idx = new Uint32Array([0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7]);
+  return { pos, idx };
+}
+
+function concatGeoms(list) {
+  const geoms = list.filter(Boolean);
+  if (!geoms.length) return null;
+  const pos = new Float32Array(geoms.reduce((n, g) => n + g.pos.length, 0));
+  const idx = new Uint32Array(geoms.reduce((n, g) => n + g.idx.length, 0));
+  let po = 0, io = 0;
+  for (const g of geoms) {
+    pos.set(g.pos, po);
+    for (let k = 0; k < g.idx.length; k++) idx[io + k] = g.idx[k] + po / 3;
+    po += g.pos.length; io += g.idx.length;
+  }
+  return { pos, idx };
+}
+
+// Welded, indexed text mesh scaled to fit `maxW`, left edge at x=0, baseline at y=0, z from 0 to `depth`.
+function textGeometry(str, size, depth, maxW) {
+  const clean = [...str].map((c) => (font.data.glyphs[c] ? c : ' ')).join('').trim();
+  if (!clean) return null;
+  let g = new TextGeometry(clean, { font, size, height: depth, curveSegments: 6, bevelEnabled: false });
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  g = mergeVertices(g, 1e-4);
+  g.computeBoundingBox();
+  const bb = g.boundingBox, w = bb.max.x - bb.min.x, s = w > maxW ? maxW / w : 1;
+  g.translate(-bb.min.x, 0, 0);
+  g.scale(s, s, 1);
+  return { pos: new Float32Array(g.attributes.position.array), idx: Uint32Array.from(g.index.array), width: w * s, size: size * s };
+}
+
+function labelGeometry(m, P) {
+  const D = P.plateD, thick = Math.max(P.base, 2);
+  const plate = boxGeometry(0, -D, 0, m.W, 0.4, thick); // overlaps the terrain wall slightly so they fuse
+  if (!font) return { plate, label: null };
+  const pad = D * 0.16, maxW = m.W - 2 * pad, depth = P.routeH + 0.3, z0 = thick - 0.3;
+  const title = P.title && textGeometry(P.title, D * 0.34, depth, maxW);
+  const details = P.details && textGeometry(P.details, D * (title ? 0.19 : 0.3), depth, maxW);
+  const place = (g, baseY) => {
+    const dx = (m.W - g.width) / 2;
+    for (let k = 0; k < g.pos.length; k += 3) { g.pos[k] += dx; g.pos[k + 1] += baseY; g.pos[k + 2] += z0; }
+  };
+  if (title && details) {
+    const gap = (D - 2 * pad - title.size - details.size) / 2;
+    place(details, -D + pad + Math.max(0, gap * 0.5));
+    place(title, -pad - title.size);
+  } else if (title || details) {
+    const g = title || details;
+    place(g, -D / 2 - g.size / 2);
+  }
+  return { plate, label: concatGeoms([title, details]) };
+}
+
+function pointAt(t, d) {
+  const D = t.dist, n = D.length;
+  let lo = 0, hi = n - 1;
+  if (d <= 0) return [t.x[0], t.y[0], 0];
+  if (d >= t.total) return [t.x[n - 1], t.y[n - 1], n - 1];
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (D[m] <= d) lo = m; else hi = m; }
+  const f = D[hi] > D[lo] ? (d - D[lo]) / (D[hi] - D[lo]) : 0;
+  return [t.x[lo] + (t.x[hi] - t.x[lo]) * f, t.y[lo] + (t.y[hi] - t.y[lo]) * f, lo + f];
+}
+
+function pathBetween(t, a, b) {
+  const out = [pointAt(t, a)];
+  for (let k = 0; k < t.dist.length; k++) if (t.dist[k] > a && t.dist[k] < b) out.push([t.x[k], t.y[k]]);
+  out.push(pointAt(t, b));
+  return out;
+}
+
+// Solid block: terrain top surface, four walls, flat bottom. Welded, outward-facing triangles.
+function terrainGeometry(m) {
+  const { nx, ny, W, H, zs } = m;
+  const per = [];
+  for (let i = 0; i < nx; i++) per.push(i);
+  for (let j = 1; j < ny; j++) per.push(j * nx + nx - 1);
+  for (let i = nx - 2; i >= 0; i--) per.push((ny - 1) * nx + i);
+  for (let j = ny - 2; j >= 1; j--) per.push(j * nx);
+  const L = per.length, top = nx * ny, B = top, C = top + L;
+  const pos = new Float32Array((top + L + 1) * 3);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i;
+    pos[k * 3] = (i / (nx - 1)) * W; pos[k * 3 + 1] = (j / (ny - 1)) * H; pos[k * 3 + 2] = zs[k];
+  }
+  per.forEach((p, k) => { pos[(B + k) * 3] = pos[p * 3]; pos[(B + k) * 3 + 1] = pos[p * 3 + 1]; pos[(B + k) * 3 + 2] = 0; });
+  pos[C * 3] = W / 2; pos[C * 3 + 1] = H / 2; pos[C * 3 + 2] = 0;
+  const idx = new Uint32Array(((nx - 1) * (ny - 1) * 2 + L * 3) * 3);
+  let q = 0;
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+    idx[q++] = a; idx[q++] = b; idx[q++] = c;
+    idx[q++] = a; idx[q++] = c; idx[q++] = d;
+  }
+  for (let k = 0; k < L; k++) {
+    const p0 = per[k], p1 = per[(k + 1) % L], b0 = B + k, b1 = B + ((k + 1) % L);
+    idx[q++] = b0; idx[q++] = b1; idx[q++] = p1;
+    idx[q++] = b0; idx[q++] = p1; idx[q++] = p0;
+    idx[q++] = C; idx[q++] = b1; idx[q++] = b0;
+  }
+  return { pos, idx };
+}
+
+// Raised strip that follows the terrain; its bottom sinks below the surface so it fuses with the terrain.
+function ribbonGeometry(path, width, raise, m) {
+  const cum = [0];
+  for (let k = 1; k < path.length; k++) cum.push(cum[k - 1] + Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]));
+  const total = cum[cum.length - 1];
+  if (total < width * 0.5) return null;
+  const step = Math.max(0.25, width * 0.4), n = Math.max(2, Math.ceil(total / step) + 1);
+  const P = [];
+  let seg = 0;
+  for (let k = 0; k < n; k++) {
+    const d = (k / (n - 1)) * total;
+    while (seg < path.length - 2 && cum[seg + 1] < d) seg++;
+    const f = cum[seg + 1] > cum[seg] ? (d - cum[seg]) / (cum[seg + 1] - cum[seg]) : 0;
+    P.push([
+      clamp(path[seg][0] + (path[seg + 1][0] - path[seg][0]) * f, 0.3, m.W - 0.3),
+      clamp(path[seg][1] + (path[seg + 1][1] - path[seg][1]) * f, 0.3, m.H - 0.3),
+    ]);
+  }
+  const hw = width / 2, pos = new Float32Array(n * 4 * 3);
+  for (let k = 0; k < n; k++) {
+    const a = P[Math.max(0, k - 1)], b = P[Math.min(n - 1, k + 1)];
+    let tx = b[0] - a[0], ty = b[1] - a[1];
+    const len = Math.hypot(tx, ty) || 1; tx /= len; ty /= len;
+    const lx = P[k][0] - ty * hw, ly = P[k][1] + tx * hw, rx = P[k][0] + ty * hw, ry = P[k][1] - tx * hw;
+    const h1 = m.heightAt(lx, ly), h2 = m.heightAt(P[k][0], P[k][1]), h3 = m.heightAt(rx, ry);
+    const zt = Math.max(h1, h2, h3) + raise, zb = Math.max(0.2, Math.min(h1, h2, h3) - 0.6);
+    pos.set([lx, ly, zt, rx, ry, zt, lx, ly, zb, rx, ry, zb], k * 12);
+  }
+  const idx = [];
+  for (let k = 0; k < n - 1; k++) {
+    const LT = 4 * k, RT = LT + 1, LB = LT + 2, RB = LT + 3, LT1 = LT + 4, RT1 = LT + 5, LB1 = LT + 6, RB1 = LT + 7;
+    idx.push(LT, RT, RT1, LT, RT1, LT1);       // top
+    idx.push(LB, LB1, RB1, LB, RB1, RB);       // bottom
+    idx.push(RB, RB1, RT1, RB, RT1, RT);       // right side
+    idx.push(LB, LT, LT1, LB, LT1, LB1);       // left side
+  }
+  const e = 4 * (n - 1);
+  idx.push(2, 3, 1, 2, 1, 0);                  // start cap
+  idx.push(e + 2, e + 1, e + 3, e + 2, e, e + 1); // end cap
+  return { pos, idx: new Uint32Array(idx) };
+}
+
+// ---------- 3D preview ----------
+const view = $('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 5000);
+camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+scene.add(sun, sun.target);
+const modelGroup = new THREE.Group();
+scene.add(modelGroup);
+const marker = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x333333 }));
+marker.visible = false;
+scene.add(marker);
+
+const bandUniforms = { uBandColors: { value: new Float32Array(24) }, uBandTops: { value: new Float32Array(8).fill(1e9) }, uBandCount: { value: 1 } };
+const terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
+terrainMat.onBeforeCompile = (shader) => {
+  Object.assign(shader.uniforms, bandUniforms);
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying float vZ;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvZ = position.z;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nvarying float vZ;\nuniform vec3 uBandColors[8];\nuniform float uBandTops[8];\nuniform int uBandCount;')
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      vec3 bandCol = uBandColors[0];
+      for (int i = 1; i < 8; i++) { if (i < uBandCount && vZ >= uBandTops[i - 1]) bandCol = uBandColors[i]; }
+      diffuseColor.rgb = bandCol;`);
+};
+
+function toBufferGeometry({ pos, idx }) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeVertexNormals();
+  return g;
+}
+
+function updateScene(m) {
+  for (const c of [...modelGroup.children]) { c.geometry.dispose(); if (c.material !== terrainMat) c.material.dispose(); modelGroup.remove(c); }
+  modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.terrain), terrainMat));
+  if (m.parts.plate) modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.plate), terrainMat));
+  if (m.parts.label) modelGroup.add(new THREE.Mesh(toBufferGeometry(m.parts.label), new THREE.MeshStandardMaterial({ color: m.P.labelColor, roughness: 0.6 })));
+  for (const r of m.parts.ribbons) {
+    modelGroup.add(new THREE.Mesh(toBufferGeometry(r.geom), new THREE.MeshStandardMaterial({ color: r.color, roughness: 0.6 })));
+  }
+  marker.scale.setScalar(Math.max(1, m.P.routeW * 1.2));
+  $('overlay').style.display = 'none';
+  const y0 = m.parts.plate ? -m.P.plateD : 0, depth = m.H - y0;
+  const key = `${m.W.toFixed(1)}x${depth.toFixed(1)}`;
+  if (state.lastFit !== key) {
+    state.lastFit = key;
+    const span = Math.max(m.W, depth), cy = (y0 + m.H) / 2;
+    controls.target.set(m.W / 2, cy, m.maxZ / 3);
+    camera.position.set(m.W / 2, cy - span * 1.15, span * 0.85);
+    camera.far = span * 20; camera.near = span / 500; camera.updateProjectionMatrix();
+    sun.position.set(-m.W * 0.6, y0 - depth * 0.3, span * 1.2);
+    sun.target.position.set(m.W / 2, cy, 0);
+  }
+  updateBandUniforms();
+}
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+resize();
+
+function applyTheme() {
+  const css = getComputedStyle(document.documentElement);
+  scene.background = new THREE.Color(css.getPropertyValue('--view').trim() || '#e9e6df');
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyTheme(); drawProfile(); });
+applyTheme();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+// ---------- color bands ----------
+function bandTops() {
+  const m = state.model;
+  if (!m) return [];
+  return state.bandFracs.map((f) => m.base + f * m.relief);
+}
+
+function resetBands(count) {
+  state.bandFracs = Array.from({ length: count - 1 }, (_, i) => (i + 1) / count);
+  while (state.bandColors.length < count) state.bandColors.push(BAND_DEFAULTS[state.bandColors.length % BAND_DEFAULTS.length]);
+}
+
+function updateBandUniforms() {
+  const count = state.bandFracs.length + 1, tops = bandTops();
+  bandUniforms.uBandCount.value = count;
+  for (let i = 0; i < 8; i++) {
+    const c = new THREE.Color(state.bandColors[Math.min(i, count - 1)] || '#888888');
+    bandUniforms.uBandColors.value.set([c.r, c.g, c.b], i * 3);
+    bandUniforms.uBandTops.value[i] = i < tops.length ? tops[i] : 1e9;
+  }
+}
+
+function renderBands() {
+  const count = state.bandFracs.length + 1, tops = bandTops(), m = state.model;
+  const wrap = $('bands');
+  wrap.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement('div');
+    row.className = 'band';
+    const color = Object.assign(document.createElement('input'), { type: 'color', value: state.bandColors[i] });
+    color.oninput = () => { state.bandColors[i] = color.value; updateBandUniforms(); };
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = i === 0 ? 'Base & lowlands' : i === count - 1 ? 'Peaks' : `Band ${i + 1}`;
+    row.append(color, lbl);
+    if (i < count - 1 && m) {
+      const top = Object.assign(document.createElement('input'), { type: 'number', step: '0.2', value: tops[i].toFixed(1), title: 'Top of this band (Z, mm)' });
+      top.onchange = () => {
+        const v = parseFloat(top.value);
+        if (!isFinite(v) || m.relief <= 0) return;
+        state.bandFracs[i] = clamp((v - m.base) / m.relief, 0, 1);
+        state.bandFracs.sort((a, b) => a - b);
+        updateBandUniforms(); renderBands();
+      };
+      const unit = document.createElement('span');
+      unit.className = 'meta'; unit.textContent = 'mm';
+      row.append(top, unit);
+    }
+    wrap.append(row);
+  }
+  const sw = $('swaps');
+  if (!m || count < 2) { sw.innerHTML = '<span class="empty">One color, no filament swaps.</span>'; return; }
+  sw.innerHTML = swapLines().map(([z, i]) => `<div><span>Change to color ${i + 1}</span><b>Z = ${z.toFixed(2)} mm</b></div>`).join('');
+}
+
+function swapLines() {
+  return bandTops().map((z, i) => [z, i + 1]);
+}
+
+$('bandCount').onchange = () => {
+  resetBands(parseInt($('bandCount').value, 10));
+  if (state.theme) setBandsFromTheme(state.theme);
+  updateBandUniforms(); renderBands();
+};
+
+// ---------- color themes ----------
+function rampColor(ramp, f) {
+  const x = clamp(f, 0, 1) * (ramp.length - 1), i = Math.min(Math.floor(x), ramp.length - 2);
+  return '#' + new THREE.Color(ramp[i]).lerp(new THREE.Color(ramp[i + 1]), x - i).getHexString();
+}
+
+function setBandsFromTheme(th) {
+  const n = state.bandFracs.length + 1;
+  state.bandColors = Array.from({ length: 6 }, (_, i) => rampColor(th.bands, n > 1 ? Math.min(i, n - 1) / (n - 1) : 0.4));
+}
+
+function applyColorTheme(th) {
+  state.theme = th;
+  setBandsFromTheme(th);
+  let h = 0;
+  for (const t of state.tracks) t.color = t.role === 'highlight' ? th.segs[h++ % th.segs.length] : th.route;
+  state.segments.forEach((sg, i) => { sg.color = th.segs[(h + i) % th.segs.length]; });
+  $('labelColor').value = th.label;
+  renderThemes(); renderTracks(); renderSegments(); renderBands(); updateBandUniforms();
+  rebuild(); drawProfile();
+}
+
+function renderThemes() {
+  const wrap = $('themes');
+  wrap.innerHTML = '';
+  for (const th of THEMES) {
+    const b = document.createElement('button');
+    b.className = 'theme' + (state.theme === th ? ' on' : '');
+    b.title = `${th.name}: terrain with a complementary route color`;
+    const dots = th.segs.slice(0, 2).map((c, i) => `<b style="background:${c};left:${62 + i * 14}%"></b>`).join('');
+    b.innerHTML = `<div class="sw" style="background:linear-gradient(90deg,${th.bands.join(',')})"><i style="background:${th.route}"></i>${dots}</div>${esc(th.name)}`;
+    b.onclick = () => applyColorTheme(th);
+    wrap.append(b);
+  }
+}
+
+function renderStats() {
+  const m = state.model, d = state.dem, u = units();
+  const flat = m.relief < 4;
+  const depth = m.H + (m.parts.plate ? m.P.plateD : 0);
+  $('stats').innerHTML =
+    `Model ${m.W.toFixed(0)} × ${depth.toFixed(0)} mm, ${m.maxZ.toFixed(1)} mm tall (relief ${m.relief.toFixed(1)} mm)<br>` +
+    `Elevation ${Math.round(m.minE * u.e)}–${Math.round(m.maxE * u.e)} ${u.el} · terrain zoom ${d.z}` +
+    (flat ? `<br><span class="warn">Pretty flat. Try a higher vertical exaggeration.</span>` : '');
+}
+
+// ---------- track & segment lists ----------
+function afterTracksChanged() {
+  renderTracks();
+  renderSegments();
+  if (!state.tracks.length) {
+    state.dem = null; state.model = null; state.lastFit = null;
+    for (const c of [...modelGroup.children]) modelGroup.remove(c);
+    $('overlay').style.display = '';
+    for (const id of ['ex3mf', 'exStl', 'exZip']) $(id).disabled = true;
+    drawProfile();
+    return;
+  }
+  loadTerrain();
+}
+
+function renderTracks() {
+  const wrap = $('tracks'), u = units();
+  wrap.innerHTML = '';
+  for (const t of state.tracks) {
+    const row = document.createElement('div');
+    row.className = 'item';
+    const color = Object.assign(document.createElement('input'), { type: 'color', value: t.color, title: 'Route color' });
+    color.oninput = () => { t.color = color.value; scheduleRebuild(); };
+    const name = Object.assign(document.createElement('input'), { type: 'text', value: t.name });
+    name.onchange = () => { t.name = name.value; renderProfileSelect(); };
+    const role = document.createElement('select');
+    role.innerHTML = '<option value="route">Route</option><option value="highlight">Highlight</option>';
+    role.value = t.role;
+    role.title = 'Highlight = raised like a segment';
+    role.onchange = () => { t.role = role.value; scheduleRebuild(); };
+    const meta = document.createElement('span');
+    meta.className = 'meta'; meta.textContent = `${(t.total * u.d).toFixed(1)} ${u.dl}`;
+    const del = Object.assign(document.createElement('button'), { className: 'x', textContent: '×', title: 'Remove' });
+    del.onclick = () => {
+      state.tracks = state.tracks.filter((x) => x !== t);
+      state.segments = state.segments.filter((s) => s.trackId !== t.id);
+      if (state.profileTrackId === t.id) state.profileTrackId = state.tracks[0]?.id ?? null;
+      state.sel = null; showSelForm();
+      afterTracksChanged();
+    };
+    row.append(color, name, role, meta, del);
+    wrap.append(row);
+  }
+  renderProfileSelect();
+}
+
+function renderProfileSelect() {
+  const sel = $('profTrack');
+  sel.innerHTML = state.tracks.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  sel.value = state.profileTrackId ?? '';
+  sel.style.display = state.tracks.length > 1 ? '' : 'none';
+}
+$('profTrack').onchange = () => { state.profileTrackId = parseInt($('profTrack').value, 10); state.sel = null; showSelForm(); drawProfile(); };
+
+function renderSegments() {
+  const wrap = $('segments'), u = units();
+  wrap.innerHTML = state.segments.length ? '' : '<span class="empty">No segments yet.</span>';
+  for (const sg of state.segments) {
+    const t = state.tracks.find((x) => x.id === sg.trackId);
+    const row = document.createElement('div');
+    row.className = 'item';
+    const color = Object.assign(document.createElement('input'), { type: 'color', value: sg.color });
+    color.oninput = () => { sg.color = color.value; scheduleRebuild(); drawProfile(); };
+    const name = Object.assign(document.createElement('input'), { type: 'text', value: sg.name });
+    name.onchange = () => { sg.name = name.value; };
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = `${(Math.abs(sg.b - sg.a) * u.d).toFixed(2)} ${u.dl}`;
+    meta.title = t ? t.name : '';
+    const del = Object.assign(document.createElement('button'), { className: 'x', textContent: '×', title: 'Remove segment' });
+    del.onclick = () => { state.segments = state.segments.filter((x) => x !== sg); renderSegments(); scheduleRebuild(); drawProfile(); };
+    row.append(color, name, meta, del);
+    wrap.append(row);
+  }
+}
+
+// ---------- elevation profile ----------
+const prof = $('profile');
+const profileTrack = () => state.tracks.find((t) => t.id === state.profileTrackId);
+const PAD = { l: 46, r: 14, t: 10, b: 22 };
+
+function profileEle(t) { return t.demEle || t.ele; }
+
+function drawProfile() {
+  const dpr = Math.min(devicePixelRatio, 2), w = prof.clientWidth, h = prof.clientHeight;
+  if (!w || !h) return;
+  prof.width = w * dpr; prof.height = h * dpr;
+  const ctx = prof.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement);
+  const muted = css.getPropertyValue('--muted').trim(), border = css.getPropertyValue('--border').trim(), text = css.getPropertyValue('--text').trim();
+  ctx.font = '11px system-ui, sans-serif';
+  const t = profileTrack();
+  if (!t) { ctx.fillStyle = muted; ctx.fillText('Add a ride to see its elevation profile.', PAD.l, h / 2); return; }
+  const E = profileEle(t), u = units();
+  let lo = Infinity, hi = -Infinity;
+  for (const e of E) { lo = Math.min(lo, e); hi = Math.max(hi, e); }
+  if (hi - lo < 20) { const c = (hi + lo) / 2; lo = c - 10; hi = c + 10; }
+  const pw = w - PAD.l - PAD.r, ph = h - PAD.t - PAD.b;
+  const X = (d) => PAD.l + (d / t.total) * pw, Y = (e) => PAD.t + (1 - (e - lo) / (hi - lo)) * ph;
+
+  // grid + labels
+  ctx.strokeStyle = border; ctx.fillStyle = muted; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const e = lo + ((hi - lo) * i) / 3, y = Y(e);
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(w - PAD.r, y); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(`${Math.round(e * u.e)} ${u.el}`, PAD.l - 6, y + 4);
+  }
+  const totalU = t.total * u.d, stepU = niceStep(totalU / 6);
+  ctx.textAlign = 'center';
+  for (let du = 0; du <= totalU + 1e-9; du += stepU) ctx.fillText(`${+du.toFixed(2)}`, X(du / u.d), h - 6);
+  ctx.textAlign = 'right'; ctx.fillText(u.dl, w - 2, h - 6);
+
+  // segments
+  for (const sg of state.segments.filter((s) => s.trackId === t.id)) {
+    const a = Math.min(sg.a, sg.b), b = Math.max(sg.a, sg.b);
+    ctx.fillStyle = sg.color + '55';
+    ctx.fillRect(X(a), PAD.t, X(b) - X(a), ph);
+    ctx.fillStyle = sg.color;
+    ctx.fillRect(X(a), PAD.t, X(b) - X(a), 4);
+  }
+
+  // area + line
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(lo));
+  for (let k = 0; k < E.length; k++) ctx.lineTo(X(t.dist[k]), Y(E[k]));
+  ctx.lineTo(X(t.total), Y(lo)); ctx.closePath();
+  ctx.fillStyle = t.color + '30'; ctx.fill();
+  ctx.beginPath();
+  for (let k = 0; k < E.length; k++) ctx[k ? 'lineTo' : 'moveTo'](X(t.dist[k]), Y(E[k]));
+  ctx.strokeStyle = t.color; ctx.lineWidth = 1.6; ctx.stroke();
+
+  // selection
+  if (state.sel) {
+    const a = Math.min(state.sel.a, state.sel.b), b = Math.max(state.sel.a, state.sel.b);
+    ctx.fillStyle = text + '22'; ctx.fillRect(X(a), PAD.t, X(b) - X(a), ph);
+    ctx.strokeStyle = text; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.strokeRect(X(a) + 0.5, PAD.t + 0.5, X(b) - X(a), ph);
+    ctx.setLineDash([]);
+  }
+  // hover
+  if (state.hover != null) {
+    const x = X(state.hover);
+    ctx.strokeStyle = text; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
+  }
+}
+
+function niceStep(raw) {
+  const p = 10 ** Math.floor(Math.log10(raw || 1)), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
+}
+
+function eleAtDist(t, d) {
+  const E = profileEle(t), [, , fi] = pointAt(t, d), i = Math.floor(fi), f = fi - i;
+  return E[i] + ((E[Math.min(i + 1, E.length - 1)] ?? E[i]) - E[i]) * f;
+}
+
+function gainBetween(t, a, b) {
+  const E = profileEle(t);
+  let gain = 0, prev = eleAtDist(t, a);
+  for (let k = 0; k < E.length; k++) if (t.dist[k] > a && t.dist[k] < b) { if (E[k] > prev) gain += E[k] - prev; prev = E[k]; }
+  const last = eleAtDist(t, b);
+  if (last > prev) gain += last - prev;
+  return gain;
+}
+
+function distFromEvent(ev) {
+  const t = profileTrack(), rect = prof.getBoundingClientRect();
+  return clamp((ev.clientX - rect.left - PAD.l) / (rect.width - PAD.l - PAD.r), 0, 1) * t.total;
+}
+
+let dragging = false;
+prof.addEventListener('pointerdown', (ev) => {
+  if (!profileTrack()) return;
+  dragging = true; prof.setPointerCapture(ev.pointerId);
+  const d = distFromEvent(ev);
+  state.sel = { a: d, b: d }; showSelForm(); drawProfile();
+});
+prof.addEventListener('pointermove', (ev) => {
+  const t = profileTrack();
+  if (!t) return;
+  const d = distFromEvent(ev);
+  state.hover = d;
+  if (dragging) state.sel.b = d;
+  const u = units();
+  $('hoverInfo').textContent = `${(d * u.d).toFixed(2)} ${u.dl} · ${Math.round(eleAtDist(t, d) * u.e)} ${u.el}`;
+  moveMarker(t, d);
+  drawProfile();
+});
+prof.addEventListener('pointerup', () => {
+  if (!dragging) return;
+  dragging = false;
+  const t = profileTrack();
+  if (state.sel && Math.abs(state.sel.b - state.sel.a) < t.total * 0.004) state.sel = null;
+  showSelForm(); drawProfile();
+});
+prof.addEventListener('pointerleave', () => {
+  if (dragging) return;
+  state.hover = null; marker.visible = false;
+  $('hoverInfo').textContent = 'Drag to select a segment';
+  drawProfile();
+});
+
+function moveMarker(t, d) {
+  const m = state.model;
+  if (!m || !t.x) { marker.visible = false; return; }
+  const [x, y] = pointAt(t, d);
+  marker.position.set(x, y, m.heightAt(x, y) + m.P.routeH + m.P.segExtra + marker.scale.x * 0.6);
+  marker.visible = true;
+}
+
+function showSelForm() {
+  const f = $('selForm'), t = profileTrack();
+  if (!state.sel || dragging || !t) { f.classList.remove('on'); return; }
+  const a = Math.min(state.sel.a, state.sel.b), b = Math.max(state.sel.a, state.sel.b), u = units();
+  $('selInfo').textContent = `${(a * u.d).toFixed(2)}–${(b * u.d).toFixed(2)} ${u.dl}, +${Math.round(gainBetween(t, a, b) * u.e)} ${u.el}`;
+  $('segName').value = `Segment ${state.segments.length + 1}`;
+  const palette = state.theme?.segs || SEG_COLORS;
+  $('segColor').value = palette[state.segments.length % palette.length];
+  f.classList.add('on');
+  $('segName').select();
+}
+
+function addSegment() {
+  const t = profileTrack();
+  if (!state.sel || !t) return;
+  state.segments.push({
+    id: state.nextId++, trackId: t.id, name: $('segName').value.trim() || `Segment ${state.segments.length + 1}`,
+    color: $('segColor').value, a: Math.min(state.sel.a, state.sel.b), b: Math.max(state.sel.a, state.sel.b),
+  });
+  state.sel = null; showSelForm(); renderSegments(); rebuild();
+}
+$('segAdd').onclick = addSegment;
+$('segName').addEventListener('keydown', (e) => { if (e.key === 'Enter') addSegment(); if (e.key === 'Escape') $('segCancel').click(); });
+$('segCancel').onclick = () => { state.sel = null; showSelForm(); drawProfile(); };
+$('units').onchange = () => { renderTracks(); renderSegments(); if (state.model) rebuild(); showSelForm(); drawProfile(); };
+new ResizeObserver(drawProfile).observe(prof);
+
+// ---------- export ----------
+function exportGroups() {
+  const m = state.model, groups = [{ name: 'Terrain', color: state.bandColors[0], geoms: [m.parts.terrain, m.parts.plate].filter(Boolean) }];
+  if (m.parts.label) groups.push({ name: 'Ride details', color: m.P.labelColor.toLowerCase(), geoms: [m.parts.label] });
+  const byColor = new Map();
+  for (const r of m.parts.ribbons) {
+    if (!byColor.has(r.color)) byColor.set(r.color, { names: new Set(), color: r.color, geoms: [] });
+    const g = byColor.get(r.color);
+    g.names.add(r.name); g.geoms.push(r.geom);
+  }
+  for (const g of byColor.values()) {
+    const name = [...g.names].join(', ');
+    groups.push({ name: name.length > 60 ? name.slice(0, 57) + '…' : name, color: g.color, geoms: g.geoms });
+  }
+  return groups;
+}
+
+function stl(geoms) {
+  let tris = 0;
+  for (const g of geoms) tris += g.idx.length / 3;
+  const buf = new ArrayBuffer(84 + tris * 50), dv = new DataView(buf);
+  const head = 'Ride Relief STL';
+  for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
+  dv.setUint32(80, tris, true);
+  let o = 84;
+  for (const { pos, idx } of geoms) {
+    for (let k = 0; k < idx.length; k += 3) {
+      const a = idx[k] * 3, b = idx[k + 1] * 3, c = idx[k + 2] * 3;
+      const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2];
+      const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      dv.setFloat32(o, nx / l, true); dv.setFloat32(o + 4, ny / l, true); dv.setFloat32(o + 8, nz / l, true);
+      o += 12;
+      for (const v of [a, b, c]) { dv.setFloat32(o, pos[v], true); dv.setFloat32(o + 4, pos[v + 1], true); dv.setFloat32(o + 8, pos[v + 2], true); o += 12; }
+      o += 2;
+    }
+  }
+  return new Uint8Array(buf);
+}
+
+function threeMF(groups) {
+  const out = ['<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
+    '<metadata name="Application">Ride Relief</metadata><resources><basematerials id="1">'];
+  for (const g of groups) out.push(`<base name="${esc(g.name)}" displaycolor="${g.color.toUpperCase()}FF"/>`);
+  out.push('</basematerials>');
+  groups.forEach((g, gi) => {
+    out.push(`<object id="${gi + 2}" type="model" name="${esc(g.name)}" pid="1" pindex="${gi}"><mesh><vertices>`);
+    let chunk = [];
+    for (const { pos } of g.geoms) {
+      for (let k = 0; k < pos.length; k += 3) {
+        chunk.push(`<vertex x="${pos[k].toFixed(3)}" y="${pos[k + 1].toFixed(3)}" z="${pos[k + 2].toFixed(3)}"/>`);
+        if (chunk.length > 5000) { out.push(chunk.join('')); chunk = []; }
+      }
+    }
+    out.push(chunk.join(''), '</vertices><triangles>');
+    chunk = [];
+    let base = 0;
+    for (const { pos, idx } of g.geoms) {
+      for (let k = 0; k < idx.length; k += 3) {
+        chunk.push(`<triangle v1="${idx[k] + base}" v2="${idx[k + 1] + base}" v3="${idx[k + 2] + base}"/>`);
+        if (chunk.length > 5000) { out.push(chunk.join('')); chunk = []; }
+      }
+      base += pos.length / 3;
+    }
+    out.push(chunk.join(''), '</triangles></mesh></object>');
+  });
+  const asm = groups.length + 2;
+  out.push(`<object id="${asm}" type="model" name="Ride Relief"><components>`);
+  groups.forEach((g, gi) => out.push(`<component objectid="${gi + 2}"/>`));
+  out.push(`</components></object></resources><build><item objectid="${asm}"/></build></model>`);
+  return zipSync({
+    '[Content_Types].xml': strToU8('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'),
+    '_rels/.rels': strToU8('<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'),
+    '3D/3dmodel.model': strToU8(out.join('')),
+  }, { level: 6 });
+}
+
+function readme(groups) {
+  const m = state.model, lines = [
+    'Ride Relief print notes', '=======================', '',
+    `Model size: ${m.W.toFixed(1)} x ${m.H.toFixed(1)} mm, ${m.maxZ.toFixed(1)} mm tall.`, '',
+    'Parts:', ...groups.map((g, i) => `  ${i + 1}. ${g.name} (${g.color})`), '',
+  ];
+  if (state.bandFracs.length) {
+    lines.push('Terrain color changes (add a filament change / pause at these heights):');
+    lines.push(`  Start with color 1 (${state.bandColors[0]})`);
+    for (const [z, i] of swapLines()) lines.push(`  Z = ${z.toFixed(2)} mm -> color ${i + 1} (${state.bandColors[i]})`);
+  }
+  return lines.join('\n');
+}
+
+function download(bytes, name, type) {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function withBusy(btn, fn) {
+  return () => {
+    if (!state.model) return;
+    const label = btn.textContent;
+    btn.textContent = 'Building…'; btn.disabled = true;
+    setTimeout(() => {
+      try { fn(); } catch (e) { setStatus(`Export failed: ${e.message}`, true); }
+      btn.textContent = label; btn.disabled = false;
+    }, 30);
+  };
+}
+
+const baseName = () => slug(state.tracks[0]?.name) + '-relief';
+$('ex3mf').onclick = withBusy($('ex3mf'), () => download(threeMF(exportGroups()), baseName() + '.3mf', 'model/3mf'));
+$('exStl').onclick = withBusy($('exStl'), () => download(stl(exportGroups().flatMap((g) => g.geoms)), baseName() + '.stl', 'model/stl'));
+$('exZip').onclick = withBusy($('exZip'), () => {
+  const groups = exportGroups(), files = { 'README.txt': strToU8(readme(groups)) };
+  groups.forEach((g, i) => { files[`${i + 1}-${slug(g.name)}.stl`] = stl(g.geoms); });
+  download(zipSync(files, { level: 6 }), baseName() + '.zip', 'application/zip');
+});
+
+// ---------- wiring ----------
+let rebuildTimer;
+function scheduleRebuild() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(rebuild, 150); }
+let refetchTimer;
+document.querySelectorAll('[data-rebuild]').forEach((el) => el.addEventListener('input', scheduleRebuild));
+document.querySelectorAll('[data-refetch]').forEach((el) => el.addEventListener('input', () => {
+  clearTimeout(refetchTimer); refetchTimer = setTimeout(loadTerrain, 300);
+}));
+
+document.querySelectorAll('[data-label]').forEach((el) => el.addEventListener('input', () => { el.dataset.edited = '1'; }));
+$('labelReset').onclick = () => { fillLabelDefaults(true); rebuild(); };
+new FontLoader().load(FONT_URL, (f) => { font = f; rebuild(); }, undefined,
+  () => setStatus('Could not load the label font. The plate will print without text.', true));
+
+$('drop').onclick = () => $('file').click();
+$('file').onchange = () => { handleFiles([...$('file').files]); $('file').value = ''; };
+$('demo').onclick = () => { addTrack(demoTrack()); afterTracksChanged(); };
+let dragDepth = 0;
+addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  const files = [...(e.dataTransfer?.files || [])];
+  if (files.length) handleFiles(files); else setStatus('No file received. Try clicking the box to choose your GPX instead.', true);
+});
+
+resetBands(4);
+renderThemes();
+renderTracks();
+renderSegments();
+renderBands();
+drawProfile();
+</script>
+</body>
+</html>
