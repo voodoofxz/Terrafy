@@ -2,7 +2,7 @@
 
 **Your route. Made real.**
 
-Brand: `logo.svg` is the vector "T" mark used in the app header and as the favicon, and `brand/terrafy-logo.webp` is the full original logo. The UI palette follows the logo's sky-blue gradient (`#0b5ec5` → `#2aa7dc`) and forest greens (`#1e7f5c`, `#0f3a2b`), with a light/dark toggle.
+Brand: the official logos are `brand/terrafy-logo-light.webp` and `brand/terrafy-logo-dark.webp`, used unmodified. The app shows the one that matches the light/dark mode. The UI palette is sampled from them: logo backgrounds `#fcfbfc` and `#020914`, sky `#0356e7` → `#0fd5f2`, wordmark blue `#017ffd` → mint `#08e3ab`.
 
 A free, single-page web app that turns Strava rides and routes (GPX exports) into 3D-printable topographic relief maps.
 

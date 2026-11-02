@@ -4,28 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terrafy</title>
-<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="icon" href="brand/terrafy-logo-light.webp" type="image/webp">
 <script>
   // Apply the saved light/dark choice before first paint
   try { const t = localStorage.getItem('terrafy-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 <meta name="description" content="Turn your Strava rides and routes into 3D-printable topographic maps. Color the terrain, mark your favorite segments, export STL or 3MF.">
 <style>
-  /* Brand palette from the Terrafy logo: sky blue gradient, forest greens, ink text */
+  /* Brand palette sampled from the Terrafy logos. --panel matches each logo's background exactly so the logo sits seamlessly. */
   :root {
-    --sky-1: #0b5ec5; --sky-2: #2aa7dc; --forest: #1e7f5c; --forest-deep: #0f3a2b;
-    --bg: #f2f6f5; --panel: #ffffff; --text: #0f1f1c; --muted: #5a6b66; --border: #d6e0dc;
-    --input: #f6f9f8; --accent: #1366c7; --accent-text: #ffffff; --badge: #1e7f5c; --view: #e3ece9; --danger: #b42318;
+    --sky-1: #0356e7; --sky-2: #0fbfe9; --forest: #00a88f;
+    --bg: #eff3f7; --panel: #fcfbfc; --text: #121c26; --muted: #5b6977; --border: #dbe3ea;
+    --input: #f5f8fa; --accent: #0074e5; --accent-text: #ffffff; --badge: #00a88f; --view: #e4ecf2; --danger: #b42318;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0a1210; --panel: #111c19; --text: #e4eeeb; --muted: #8ea29c; --border: #22332e;
-      --input: #16231f; --accent: #3fa9e8; --accent-text: #04121f; --badge: #2fae7f; --view: #0d1715; --danger: #ff6b5e;
+      --bg: #050e1b; --panel: #020914; --text: #eef3f8; --muted: #8b9bb0; --border: #17253a;
+      --input: #0a1626; --accent: #1a8cff; --accent-text: #ffffff; --badge: #08c99a; --view: #061222; --danger: #ff6b5e;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0a1210; --panel: #111c19; --text: #e4eeeb; --muted: #8ea29c; --border: #22332e;
-    --input: #16231f; --accent: #3fa9e8; --accent-text: #04121f; --badge: #2fae7f; --view: #0d1715; --danger: #ff6b5e;
+    --bg: #050e1b; --panel: #020914; --text: #eef3f8; --muted: #8b9bb0; --border: #17253a;
+    --input: #0a1626; --accent: #1a8cff; --accent-text: #ffffff; --badge: #08c99a; --view: #061222; --danger: #ff6b5e;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -35,12 +35,18 @@
     display: grid; grid-template-columns: 350px 1fr; height: 100vh; overflow: hidden;
   }
   aside { background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 16px 32px; }
-  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .brand img { width: 42px; height: 42px; flex: none; }
-  .brand > div { flex: 1; min-width: 0; }
-  h1 { font-size: 23px; font-weight: 800; margin: 0; letter-spacing: -0.02em; line-height: 1.1; }
-  .tag { color: var(--muted); margin: 1px 0 0; font-size: 13px; }
-  #themeToggle { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border-radius: 50%; flex: none; }
+  .brand { position: relative; display: flex; flex-direction: column; align-items: center; margin: -4px 0 12px; }
+  .brand img { width: 168px; height: 168px; display: block; }
+  .brand .logo-dark { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand .logo-light { display: none; }
+    :root:not([data-theme="light"]) .brand .logo-dark { display: block; }
+  }
+  :root[data-theme="dark"] .brand .logo-light { display: none; }
+  :root[data-theme="dark"] .brand .logo-dark { display: block; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tag { color: var(--muted); margin: -6px 0 0; font-size: 13.5px; font-weight: 500; letter-spacing: 0.01em; }
+  #themeToggle { position: absolute; top: 4px; right: 0; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
   #themeToggle svg { width: 17px; height: 17px; }
   section { border-top: 1px solid var(--border); padding: 14px 0 6px; }
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
@@ -141,11 +147,10 @@
 <body>
 <aside>
   <div class="brand">
-    <img src="logo.svg" alt="">
-    <div>
-      <h1>Terrafy</h1>
-      <p class="tag">Your route. Made real.</p>
-    </div>
+    <h1 class="sr-only">Terrafy</h1>
+    <img class="logo-light" src="brand/terrafy-logo-light.webp" alt="Terrafy">
+    <img class="logo-dark" src="brand/terrafy-logo-dark.webp" alt="Terrafy">
+    <p class="tag">Your route. Made real.</p>
     <button id="themeToggle" title="Switch light/dark" aria-label="Switch light/dark"></button>
   </div>
 
