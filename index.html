@@ -89,13 +89,24 @@
   #overlay h3 { color: var(--text); margin: 0 0 4px; font-size: 18px; }
   #status { position: absolute; left: 12px; top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
   #legend { position: absolute; right: 12px; top: 12px; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px; padding: 6px 10px; }
-  #profileWrap { background: var(--panel); border-top: 1px solid var(--border); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+  #profileWrap { position: relative; background: var(--panel); border-top: 1px solid var(--border); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+  .steps { font-size: 12.5px; color: var(--muted); padding-left: 18px; margin: 0 0 10px; }
+  .steps li { margin: 3px 0; }
+  .steps b { color: var(--text); }
+  .range { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+  .range input { width: 62px; }
+  .range button { padding: 4px 10px; }
   .phead { display: flex; align-items: center; gap: 10px; padding: 8px 12px 4px; flex-wrap: wrap; font-size: 12.5px; }
   .phead .title { font-weight: 600; }
   .phead select { width: auto; padding: 3px 6px; }
   .phead .hint { color: var(--muted); }
-  #selForm { display: none; align-items: center; gap: 6px; margin-left: auto; }
+  #selForm {
+    display: none; position: absolute; top: 34px; z-index: 2; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: var(--panel); border: 1.5px solid var(--accent); border-radius: 10px; padding: 7px 8px 7px 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .25); font-size: 12.5px; max-width: calc(100% - 16px);
+  }
   #selForm.on { display: flex; }
+  #selInfo { font-weight: 600; }
   #selForm input[type=text] { width: 150px; padding: 3px 6px; }
   #selForm button { padding: 4px 10px; }
   #profile { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; min-height: 0; }
@@ -105,7 +116,6 @@
     body { display: block; height: auto; overflow: auto; }
     aside { border-right: none; border-bottom: 1px solid var(--border); }
     main { grid-template-rows: 60vh 230px; }
-    #selForm { margin-left: 0; }
   }
 </style>
 <script type="importmap">
@@ -191,7 +201,20 @@
 
   <section>
     <h2><b>6</b> Favorite segments</h2>
-    <p class="help" style="margin-top:0">Drag across the elevation profile below to select a stretch, then name it and pick a color.</p>
+    <p class="help" style="margin-top:0">Segments print raised, in their own color. To mark one:</p>
+    <ol class="steps">
+      <li>Find the <b>Elevation profile</b> chart at the bottom of the page.</li>
+      <li>Press and hold where the segment starts, drag to where it ends, then let go. The 3D map shows a dot where you are.</li>
+      <li>In the box that pops up, name it, pick a color and click <b>Add segment</b>.</li>
+    </ol>
+    <div class="range">
+      <span>Or type it:</span>
+      <input type="number" id="rgFrom" min="0" step="0.1" placeholder="from">
+      <span>to</span>
+      <input type="number" id="rgTo" min="0" step="0.1" placeholder="to">
+      <span id="rgUnit">km</span>
+      <button id="rgGo">Select</button>
+    </div>
     <div class="list" id="segments"></div>
   </section>
 
@@ -223,16 +246,16 @@
       <span class="title">Elevation profile</span>
       <select id="profTrack"></select>
       <select id="units"><option value="km">km / m</option><option value="mi">mi / ft</option></select>
-      <span class="hint" id="hoverInfo">Drag to select a segment</span>
-      <div id="selForm">
-        <span id="selInfo"></span>
-        <input type="text" id="segName" placeholder="Segment name">
-        <input type="color" id="segColor">
-        <button class="primary" id="segAdd">Add segment</button>
-        <button class="x" id="segCancel" title="Clear selection">×</button>
-      </div>
+      <span class="hint" id="hoverInfo">Click and drag across the chart to mark a segment</span>
     </div>
     <canvas id="profile"></canvas>
+    <div id="selForm">
+      <span id="selInfo"></span>
+      <input type="text" id="segName" placeholder="Segment name">
+      <input type="color" id="segColor" title="Segment color">
+      <button class="primary" id="segAdd">Add segment</button>
+      <button class="x" id="segCancel" title="Clear selection">×</button>
+    </div>
   </div>
 </main>
 
@@ -1041,6 +1064,19 @@ function drawProfile() {
   for (let k = 0; k < E.length; k++) ctx[k ? 'lineTo' : 'moveTo'](X(t.dist[k]), Y(E[k]));
   ctx.strokeStyle = t.color; ctx.lineWidth = 1.6; ctx.stroke();
 
+  // first-time hint
+  if (!state.sel && !dragging && !state.segments.some((s) => s.trackId === t.id)) {
+    const msg = '←  Click and drag across this chart to mark a favorite segment  →';
+    ctx.font = '600 12px system-ui, sans-serif';
+    const tw = ctx.measureText(msg).width, cx = PAD.l + pw / 2, by = PAD.t + 8;
+    ctx.fillStyle = css.getPropertyValue('--panel').trim();
+    ctx.globalAlpha = 0.9; ctx.fillRect(cx - tw / 2 - 10, by, tw + 20, 24); ctx.globalAlpha = 1;
+    ctx.strokeStyle = css.getPropertyValue('--accent').trim(); ctx.lineWidth = 1;
+    ctx.strokeRect(cx - tw / 2 - 10 + 0.5, by + 0.5, tw + 20, 24);
+    ctx.fillStyle = text; ctx.textAlign = 'center';
+    ctx.fillText(msg, cx, by + 16);
+  }
+
   // selection
   if (state.sel) {
     const a = Math.min(state.sel.a, state.sel.b), b = Math.max(state.sel.a, state.sel.b);
@@ -1109,7 +1145,7 @@ prof.addEventListener('pointerup', () => {
 prof.addEventListener('pointerleave', () => {
   if (dragging) return;
   state.hover = null; marker.visible = false;
-  $('hoverInfo').textContent = 'Drag to select a segment';
+  $('hoverInfo').textContent = 'Click and drag across the chart to mark a segment';
   drawProfile();
 });
 
@@ -1125,13 +1161,27 @@ function showSelForm() {
   const f = $('selForm'), t = profileTrack();
   if (!state.sel || dragging || !t) { f.classList.remove('on'); return; }
   const a = Math.min(state.sel.a, state.sel.b), b = Math.max(state.sel.a, state.sel.b), u = units();
-  $('selInfo').textContent = `${(a * u.d).toFixed(2)}–${(b * u.d).toFixed(2)} ${u.dl}, +${Math.round(gainBetween(t, a, b) * u.e)} ${u.el}`;
+  $('selInfo').textContent = `${(a * u.d).toFixed(2)}–${(b * u.d).toFixed(2)} ${u.dl} · +${Math.round(gainBetween(t, a, b) * u.e)} ${u.el}`;
   $('segName').value = `Segment ${state.segments.length + 1}`;
   const palette = state.theme?.segs || SEG_COLORS;
   $('segColor').value = palette[state.segments.length % palette.length];
   f.classList.add('on');
+  // Float the box over the middle of the selection, kept inside the chart
+  const wrapW = $('profileWrap').clientWidth, pw = prof.clientWidth - PAD.l - PAD.r;
+  const mid = PAD.l + ((a + b) / 2 / t.total) * pw;
+  f.style.left = `${clamp(mid - f.offsetWidth / 2, 8, Math.max(8, wrapW - f.offsetWidth - 8))}px`;
   $('segName').select();
 }
+
+$('rgGo').onclick = () => {
+  const t = profileTrack(), u = units();
+  if (!t) { setStatus('Add a ride first.', true); return; }
+  const a = parseFloat($('rgFrom').value) / u.d, b = parseFloat($('rgTo').value) / u.d;
+  if (!isFinite(a) || !isFinite(b) || a === b) { setStatus(`Enter a start and end distance in ${u.dl}.`, true); return; }
+  setStatus('');
+  state.sel = { a: clamp(Math.min(a, b), 0, t.total), b: clamp(Math.max(a, b), 0, t.total) };
+  showSelForm(); drawProfile();
+};
 
 function addSegment() {
   const t = profileTrack();
@@ -1145,7 +1195,7 @@ function addSegment() {
 $('segAdd').onclick = addSegment;
 $('segName').addEventListener('keydown', (e) => { if (e.key === 'Enter') addSegment(); if (e.key === 'Escape') $('segCancel').click(); });
 $('segCancel').onclick = () => { state.sel = null; showSelForm(); drawProfile(); };
-$('units').onchange = () => { renderTracks(); renderSegments(); if (state.model) rebuild(); showSelForm(); drawProfile(); };
+$('units').onchange = () => { $('rgUnit').textContent = units().dl; renderTracks(); renderSegments(); if (state.model) rebuild(); showSelForm(); drawProfile(); };
 new ResizeObserver(drawProfile).observe(prof);
 
 // ---------- export ----------
