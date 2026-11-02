@@ -377,6 +377,9 @@ const THEMES = [
   { name: 'Autumn Ridge', bands: ['#3d2f0f', '#7a5a14', '#c9922a', '#f3dca0'], route: '#3b5bdb', segs: ['#74c0fc', '#e599f7', '#ffffff'], label: '#3b5bdb' },
   { name: 'Ultraviolet', bands: ['#140b2e', '#3c1a78', '#7b3fd1', '#cdb4ff'], route: '#a3e635', segs: ['#facc15', '#22d3ee', '#ffffff'], label: '#a3e635' },
   { name: 'Rose & Sage', bands: ['#4a1f2e', '#9e4a64', '#d98ba0', '#fbe4ea'], route: '#2fbf71', segs: ['#1c7ed6', '#ffd43b', '#ffffff'], label: '#2fbf71' },
+  // Just for fun. `count` switches the map to that many color bands so every color shows.
+  { name: 'Rainbow', count: 6, bands: ['#e81416', '#ff8c00', '#ffd400', '#2bb34a', '#1e6fff', '#8b2fd9'], route: '#ffffff', segs: ['#111111', '#ff4fd8', '#00e5ff'], label: '#ffffff' },
+  { name: 'Unicorn', count: 5, bands: ['#b57bff', '#ff8fd0', '#7fd8ff', '#9ff5d4', '#fff6b8'], route: '#7c1fd6', segs: ['#ff2ec4', '#ffc400', '#00c2e0'], label: '#ff2ec4' },
 ];
 
 const state = {
@@ -579,23 +582,50 @@ function climb(E) {
   return gain;
 }
 
-function rideDetails(t) {
-  const u = units(), parts = [`${(t.total * u.d).toFixed(1)} ${u.dl}`];
-  const E = t.hasEle ? t.ele : (t.demEle || t.ele);
-  parts.push(`${Math.round(climb(E) * u.e).toLocaleString('en-US')} ${u.el} climbing`);
-  const s = t.start ? new Date(t.start) : null, e = t.end ? new Date(t.end) : null;
-  if (s && !isNaN(s)) parts.push(s.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
-  if (s && e && e - s > 0) {
-    const mins = Math.round((e - s) / 60000);
-    parts.push(`${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`);
+// Rides counted on the label: every Route track (Highlight tracks are extras drawn on top)
+function labelRides() {
+  const routes = state.tracks.filter((t) => t.role === 'route');
+  return routes.length ? routes : state.tracks;
+}
+
+// Totals across all rides: distance, climbing, date (or date range) and ride time
+function rideDetails(rides) {
+  const u = units(), dates = [];
+  let km = 0, gain = 0, mins = 0;
+  for (const t of rides) {
+    km += t.total;
+    gain += climb(t.hasEle ? t.ele : (t.demEle || t.ele));
+    const s = t.start ? new Date(t.start) : null, e = t.end ? new Date(t.end) : null;
+    if (s && !isNaN(s)) dates.push(s);
+    if (s && e && e - s > 0) mins += Math.round((e - s) / 60000);
   }
+  const parts = [];
+  if (rides.length > 1) parts.push(`${rides.length} rides`);
+  parts.push(`${(km * u.d).toFixed(1)} ${u.dl}`, `${Math.round(gain * u.e).toLocaleString('en-US')} ${u.el} climbing`);
+  if (dates.length) parts.push(dateRange(dates));
+  if (mins > 0) parts.push(`${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`);
   return parts.join('  |  ');
 }
 
+// "Oct 18, 2026", "Jun 3 - Oct 18, 2026" or "Dec 30, 2025 - Jan 2, 2026" (plain hyphen: the label font has no en dash)
+function dateRange(dates) {
+  const sorted = [...dates].sort((a, b) => a - b), a = sorted[0], b = sorted[sorted.length - 1];
+  const full = { year: 'numeric', month: 'short', day: 'numeric' }, short = { month: 'short', day: 'numeric' };
+  const fmt = (d, o) => d.toLocaleDateString('en-US', o);
+  if (a.toDateString() === b.toDateString()) return fmt(a, full);
+  return `${fmt(a, a.getFullYear() === b.getFullYear() ? short : full)} - ${fmt(b, full)}`;
+}
+
+function rideTitle(rides) {
+  if (rides.length === 1) return rides[0].name;
+  if (rides.length === 2) return `${rides[0].name} + ${rides[1].name}`;
+  return `${rides[0].name} + ${rides.length - 1} more`;
+}
+
 function fillLabelDefaults(force) {
-  const t = state.tracks[0];
-  if (!t) return;
-  for (const [id, val] of [['labelTitle', t.name], ['labelDetails', rideDetails(t)]]) {
+  const rides = labelRides();
+  if (!rides.length) return;
+  for (const [id, val] of [['labelTitle', rideTitle(rides)], ['labelDetails', rideDetails(rides)]]) {
     const el = $(id);
     if (force || !el.dataset.edited) { el.value = val; delete el.dataset.edited; }
   }
@@ -1051,6 +1081,7 @@ function setBandsFromTheme(th) {
 
 function applyColorTheme(th) {
   state.theme = th;
+  if (th.count) { $('bandCount').value = String(th.count); resetBands(th.count); }
   setBandsFromTheme(th);
   let h = 0;
   for (const t of state.tracks) t.color = t.role === 'highlight' ? th.segs[h++ % th.segs.length] : th.route;
@@ -1217,10 +1248,12 @@ function drawProfile() {
   ctx.moveTo(X(0), Y(lo));
   for (let k = 0; k < E.length; k++) ctx.lineTo(X(t.dist[k]), Y(E[k]));
   ctx.lineTo(X(t.total), Y(lo)); ctx.closePath();
-  ctx.fillStyle = t.color + '30'; ctx.fill();
+  // A route color close to the background (e.g. a white route in light mode) would vanish, so fall back to the text color
+  const lineColor = Math.abs(luminance(t.color) - luminance(css.getPropertyValue('--panel').trim())) < 0.25 ? text : t.color;
+  ctx.fillStyle = lineColor + '30'; ctx.fill();
   ctx.beginPath();
   for (let k = 0; k < E.length; k++) ctx[k ? 'lineTo' : 'moveTo'](X(t.dist[k]), Y(E[k]));
-  ctx.strokeStyle = t.color; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 1.6; ctx.stroke();
 
   // first-time hint
   if (!state.sel && !dragging && !state.segments.some((s) => s.trackId === t.id)) {
@@ -1249,6 +1282,11 @@ function drawProfile() {
     ctx.strokeStyle = text; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
   }
+}
+
+function luminance(hex) {
+  const n = parseInt(hex.replace('#', '').slice(0, 6), 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
 }
 
 function drawStar(ctx, x, y, R, fill, stroke) {
