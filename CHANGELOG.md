@@ -2,6 +2,13 @@
 
 All notable changes to Terrafy. Versions follow [Semantic Versioning](https://semver.org/). Terrafy stays on 0.x during beta testing, and 1.0.0 will be the public launch. Each version has a matching git tag (`v0.9.0`, …).
 
+## [0.13.0] - 2026-11-02
+### Added
+- Route raised in cities: when buildings are on the map, the route, segments and markers lift to about half the height of the buildings along them, so the ride shows between towers. It's on by default, with a "Raise route in cities" switch under "Route line".
+- Buildings sitting on the route (usually GPS drift into a building) are cleared away, keeping the street open. The stats line shows how many were cleared and how far the route was raised.
+### Changed
+- The "pretty flat" tip no longer shows on maps with buildings.
+
 ## [0.12.0] - 2026-11-02
 ### Added
 - 🏙️ City buildings: on maps under 6 km across, building footprints and heights from OpenStreetMap (via OpenFreeMap's free vector tiles) are raised on the terrain at true scale. Building height (×), color and an on/off switch are under "Map & print size". Buildings export as their own "Buildings" part in the 3MF.
@@ -71,6 +78,7 @@ All notable changes to Terrafy. Versions follow [Semantic Versioning](https://se
 ### Added
 - First version: load a GPX, get terrain from AWS Terrain Tiles, build a raised route, set color bands with filament-swap heights, drag on the elevation profile to mark segments, add a ride-details label plate and complementary color themes, and export STL, 3MF or a zip of STLs, one per color.
 
+[0.13.0]: https://github.com/voodoofxz/Terrafy/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/voodoofxz/Terrafy/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/voodoofxz/Terrafy/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/voodoofxz/Terrafy/compare/v0.9.0...v0.10.0

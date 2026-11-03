@@ -336,6 +336,7 @@
     <summary><h2><b>3</b> Route line</h2></summary>
     <label class="row"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
+    <label class="row"><span>Raise route in cities<small>so it shows between buildings</small></span><input type="checkbox" id="cityLift" checked data-rebuild style="justify-self:end"></label>
     <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment end markers<small>printed at the start and finish</small></span>
       <select id="segMarkers" data-rebuild>
@@ -715,7 +716,7 @@ function readSettings() {
   return {
     width: n('width', 150, 30, 400), exag: n('exag', 2, 0.2, 20), base: n('base', 3, 0.6, 30),
     detail: Math.round(n('detail', 300, 40, 600)), routeW: n('routeW', 1.4, 0.4, 6), routeH: n('routeH', 0.8, 0.2, 6),
-    segExtra: n('segExtra', 0.6, 0, 6), flattenOcean: $('ocean').checked,
+    segExtra: n('segExtra', 0.6, 0, 6), flattenOcean: $('ocean').checked, cityLift: $('cityLift').checked,
     marker: $('segMarkers').value, markerSize: n('starSize', 10, 3, 25),
     waterOn: $('waterOn').checked, waterColor: $('waterColor').value,
     bldOn: $('bldOn').checked, bldScale: n('bldScale', 1, 0.2, 5), bldColor: $('bldColor').value,
@@ -858,8 +859,12 @@ function mergedIntervals(segs) {
 
 function buildParts(model, P) {
   const ribbons = [];
+  // Buildings come first: they're cleared off the route, and in cities the route is lifted to show between them
+  const buildings = P.bldOn && state.bld?.list ? buildingsGeometry(model, P) : null;
+  const lift = P.cityLift && buildings?.nearRoute.length ? cityRouteLift(buildings.nearRoute) : 0;
+  model.routeLift = lift;
   const add = (name, color, path, width, raise) => {
-    const geom = ribbonGeometry(path, width, raise, model);
+    const geom = ribbonGeometry(path, width, raise + lift, model);
     if (geom) ribbons.push({ name, color: color.toLowerCase(), geom });
   };
   // A marker (star, heart, flag…) stands a little taller than its segment at the start and finish
@@ -867,7 +872,7 @@ function buildParts(model, P) {
     if (!MARKER_SHAPES[P.marker]) return;
     for (const d of [a, b]) {
       const [x, y] = pointAt(t, d);
-      ribbons.push({ name, color: color.toLowerCase(), geom: markerGeometry(P.marker, x, y, P.markerSize / 2, P.routeH + P.segExtra + 1, model) });
+      ribbons.push({ name, color: color.toLowerCase(), geom: markerGeometry(P.marker, x, y, P.markerSize / 2, P.routeH + P.segExtra + 1 + lift, model) });
     }
   };
   for (const t of state.tracks) {
@@ -889,8 +894,7 @@ function buildParts(model, P) {
       addStars(sg.name, sg.color, t, a, b);
     }
   }
-  const parts = { terrain: terrainGeometry(model), ribbons, plate: null, label: null, buildings: null };
-  if (P.bldOn && state.bld?.list) parts.buildings = buildingsGeometry(model, P);
+  const parts = { terrain: terrainGeometry(model), ribbons, plate: null, label: null, buildings };
   if (P.labelOn) Object.assign(parts, labelGeometry(model, P));
   return parts;
 }
@@ -1075,9 +1079,52 @@ function convexHull(pts) {
   return [...half(p), ...half(p.reverse())];
 }
 
+// Route lift in cities: half the typical (60th percentile) height of the buildings along the route, 1.5–10 mm
+function cityRouteLift(heights) {
+  const sorted = [...heights].sort((a, b) => a - b);
+  return clamp(sorted[Math.floor(sorted.length * 0.6)] * 0.5, 1.5, 10);
+}
+
+// Every route point, spaced 0.5 mm apart, bucketed into a 2 mm grid for quick "is the route near here?" checks
+function routeGrid() {
+  const cells = new Map(), add = (x, y) => {
+    const k = `${Math.floor(x / 2)},${Math.floor(y / 2)}`;
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push([x, y]);
+  };
+  for (const t of state.tracks) {
+    for (let k = 1; k < t.x.length; k++) {
+      const ax = t.x[k - 1], ay = t.y[k - 1], steps = Math.max(1, Math.ceil(Math.hypot(t.x[k] - ax, t.y[k] - ay) / 0.5));
+      for (let i = 0; i < steps; i++) add(ax + ((t.x[k] - ax) * i) / steps, ay + ((t.y[k] - ay) * i) / steps);
+    }
+  }
+  return {
+    near(x0, y0, x1, y1) {
+      const out = [];
+      for (let gx = Math.floor(x0 / 2); gx <= Math.floor(x1 / 2); gx++) {
+        for (let gy = Math.floor(y0 / 2); gy <= Math.floor(y1 / 2); gy++) out.push(...(cells.get(`${gx},${gy}`) || []));
+      }
+      return out;
+    },
+  };
+}
+
+// Is (px, py) inside the outline, or within `d` mm of its edge?
+function touchesRing(px, py, rim, d) {
+  let inside = false;
+  for (let i = 0, j = rim.length - 1; i < rim.length; j = i++) {
+    const [ax, ay] = rim[j], [bx, by] = rim[i];
+    if ((by > py) !== (ay > py) && px < ((ax - bx) * (py - by)) / (ay - by) + bx) inside = !inside;
+    const dx = bx - ax, dy = by - ay, t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+    if (Math.hypot(px - (ax + dx * t), py - (ay + dy * t)) < d) return true;
+  }
+  return inside;
+}
+
 function buildingsGeometry(m, P) {
-  const r = state.region, s = m.W / (r.mx1 - r.mx0), geoms = [];
-  let kept = 0, tooSmall = 0;
+  const r = state.region, s = m.W / (r.mx1 - r.mx0), geoms = [], nearRoute = [], grid = routeGrid();
+  const corridor = P.routeW / 2 + 0.3; // keep the street the route runs down clear
+  let kept = 0, tooSmall = 0, onRoute = 0;
   for (const b of state.bld.list) {
     const rim = [];
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -1097,15 +1144,19 @@ function buildingsGeometry(m, P) {
       if (Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) < 1e-4) { rim.splice(i, 1); i = Math.max(0, i - 1); } else i++;
     }
     if (rim.length < 3) { tooSmall++; continue; }
+    // GPS drift often puts the track a few meters into a building; drop any building sitting on the route
+    if (grid.near(x0 - corridor, y0 - corridor, x1 + corridor, y1 + corridor).some(([px, py]) => touchesRing(px, py, rim, corridor))) { onRoute++; continue; }
     if (THREE.ShapeUtils.isClockWise(rim.map(([x, y]) => new THREE.Vector2(x, y)))) rim.reverse();
     const hs = rim.map(([x, y]) => m.heightAt(x, y)), g0 = Math.min(...hs), g1 = Math.max(...hs);
     const zt = Math.max(g1 + 0.4, g0 + b.h * m.mmPerM * P.bldScale), zb = Math.max(0.2, g0 - 0.6);
     // Self-touching or crossing outlines can't be triangulated cleanly; fall back to the outline's convex hull
     let g = prismGeometry(rim, zt, zb);
     if (!isClosedMesh(g)) g = prismGeometry(convexHull(rim), zt, zb);
-    if (g) { geoms.push(g); kept++; }
+    if (!g) continue;
+    geoms.push(g); kept++;
+    if (grid.near(x0 - 6, y0 - 6, x1 + 6, y1 + 6).length) nearRoute.push(zt - g0); // lines the route (within ~6 mm)
   }
-  return { geom: concatGeoms(geoms), kept, tooSmall };
+  return { geom: concatGeoms(geoms), kept, tooSmall, onRoute, nearRoute };
 }
 
 function boxGeometry(x0, y0, z0, x1, y1, z1) {
@@ -1497,7 +1548,7 @@ function renderThemes() {
 
 function renderStats() {
   const m = state.model, d = state.dem, u = units();
-  const flat = m.relief < 4;
+  const flat = m.relief < 4 && !m.parts.buildings?.kept; // a skyline isn't flat, whatever the ground does
   const depth = m.H + (m.parts.plate ? m.P.plateD : 0);
   $('stats').innerHTML =
     `Model ${m.W.toFixed(0)} × ${depth.toFixed(0)} mm, ${m.maxZ.toFixed(1)} mm tall (relief ${m.relief.toFixed(1)} mm)<br>` +
@@ -1512,7 +1563,11 @@ function buildingsNote() {
   if (b.tooLarge) return `<br>Buildings: the map covers ${(b.km * u.d).toFixed(1)} ${u.dl}, too wide for buildings to print. They're added under ${(BLD_MAX_KM * u.d).toFixed(0)} ${u.dl} (try a smaller margin).`;
   if (!built) return '';
   if (!built.kept) return `<br>Buildings: none big enough to print at this size${b.list.length ? ' (try a larger model width)' : ''}.`;
-  return `<br>${built.kept.toLocaleString('en-US')} buildings from OpenStreetMap` + (built.tooSmall ? ` (${built.tooSmall.toLocaleString('en-US')} too small to print)` : '');
+  const fmt = (v) => v.toLocaleString('en-US'), extra = [];
+  if (built.tooSmall) extra.push(`${fmt(built.tooSmall)} too small to print`);
+  if (built.onRoute) extra.push(`${fmt(built.onRoute)} cleared off the route`);
+  return `<br>${fmt(built.kept)} buildings from OpenStreetMap` + (extra.length ? ` (${extra.join(', ')})` : '') +
+    (state.model.routeLift ? `<br>Route raised ${state.model.routeLift.toFixed(1)} mm to show between buildings` : '');
 }
 
 // ---------- track & segment lists ----------
@@ -1758,7 +1813,7 @@ function moveMarker(t, d) {
   const m = state.model;
   if (!m || !t.x) { marker.visible = false; return; }
   const [x, y] = pointAt(t, d);
-  marker.position.set(x, y, m.heightAt(x, y) + m.P.routeH + m.P.segExtra + marker.scale.x * 0.6);
+  marker.position.set(x, y, m.heightAt(x, y) + m.P.routeH + m.P.segExtra + (m.routeLift || 0) + marker.scale.x * 0.6);
   marker.visible = true;
 }
 
