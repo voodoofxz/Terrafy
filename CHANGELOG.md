@@ -2,6 +2,13 @@
 
 All notable changes to Terrafy. Versions follow [Semantic Versioning](https://semver.org/). Terrafy stays on 0.x during beta testing, and 1.0.0 will be the public launch. Each version has a matching git tag (`v0.9.0`, …).
 
+## [0.12.0] - 2026-11-02
+### Added
+- 🏙️ City buildings: on maps under 6 km across, building footprints and heights from OpenStreetMap (via OpenFreeMap's free vector tiles) are raised on the terrain at true scale. Building height (×), color and an on/off switch are under "Map & print size". Buildings export as their own "Buildings" part in the 3MF.
+- Buildings too small to print at the current size are left out, and the stats line says how many were kept and dropped. On wider maps it explains why there are no buildings.
+- Every building is checked as a sealed solid before export. Messy real-world outlines fall back to a clean simplified shape.
+- Map attribution for OpenFreeMap, OpenMapTiles and OpenStreetMap contributors.
+
 ## [0.11.0] - 2026-11-02
 ### Added
 - Paste-a-Strava-link shortcut on the opening page and in the editor. Paste a ride (`strava.com/activities/…`) or route (`strava.com/routes/…`) link to get a one-tap button to Strava's own GPX export. Strava downloads the file in your browser (signed in as you), and the drop box pulses to show where it goes. Pasting a Strava link anywhere on the page fills in the box. Share links (`strava.app.link`) and other links get a hint explaining what to paste instead.
@@ -64,6 +71,7 @@ All notable changes to Terrafy. Versions follow [Semantic Versioning](https://se
 ### Added
 - First version: load a GPX, get terrain from AWS Terrain Tiles, build a raised route, set color bands with filament-swap heights, drag on the elevation profile to mark segments, add a ride-details label plate and complementary color themes, and export STL, 3MF or a zip of STLs, one per color.
 
+[0.12.0]: https://github.com/voodoofxz/Terrafy/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/voodoofxz/Terrafy/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/voodoofxz/Terrafy/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/voodoofxz/Terrafy/compare/v0.8.0...v0.9.0
