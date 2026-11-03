@@ -2,6 +2,16 @@
 
 All notable changes to Terrafy. Versions follow [Semantic Versioning](https://semver.org/). Terrafy stays on 0.x during beta testing, and 1.0.0 will be the public launch. Each version has a matching git tag (`v0.9.0`, …).
 
+## [0.14.0] - 2026-11-02
+### Added
+- 🏔️ Terrain / 🏙️ City switch on the 3D view. City mode adds buildings and shows the city settings, and Terrain mode hides them. This replaces the old "City buildings" checkbox.
+- Auto-detect: a new ride switches to City when its start, middle or end passes through a downtown (40+ buildings of 15 m or more). Suburbs and mountains stay on Terrain.
+- City window for long rides: in City mode, a ride wider than 6 km zooms into a printable 2–5 km window. You can resize it and center it anywhere along the ride. The route is trimmed cleanly at the map edge, and the label still shows the whole ride's stats.
+- A note on the 3D view explains what City mode is doing, including a "Move or resize" link. It's no longer hidden in a folded settings section.
+- 🏙️ Demo city loop (downtown San Francisco) on the opening page and in the editor, next to the ⛰️ mountain demo.
+### Fixed
+- Buildings appeared to be missing on long city rides: those maps were wider than 6 km, so buildings were skipped, and the explanation was hidden in a folded section on phones.
+
 ## [0.13.0] - 2026-11-02
 ### Added
 - Route raised in cities: when buildings are on the map, the route, segments and markers lift to about half the height of the buildings along them, so the ride shows between towers. It's on by default, with a "Raise route in cities" switch under "Route line".
@@ -78,6 +88,7 @@ All notable changes to Terrafy. Versions follow [Semantic Versioning](https://se
 ### Added
 - First version: load a GPX, get terrain from AWS Terrain Tiles, build a raised route, set color bands with filament-swap heights, drag on the elevation profile to mark segments, add a ride-details label plate and complementary color themes, and export STL, 3MF or a zip of STLs, one per color.
 
+[0.14.0]: https://github.com/voodoofxz/Terrafy/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/voodoofxz/Terrafy/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/voodoofxz/Terrafy/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/voodoofxz/Terrafy/compare/v0.10.0...v0.11.0

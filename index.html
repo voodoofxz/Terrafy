@@ -95,6 +95,8 @@
     50% { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
   }
   .linkish { border: none; background: none; color: var(--accent); padding: 12px 8px 4px; text-decoration: underline; text-underline-offset: 3px; }
+  .demo-links { color: var(--muted); font-size: 13.5px; }
+  .demo-links .linkish { padding: 12px 4px 4px; }
   #landingMsg { color: var(--danger); min-height: 1.4em; margin-top: 6px; font-size: 13px; }
   #landing .help { text-align: left; max-width: 420px; }
   #landing footer { text-align: center; }
@@ -161,7 +163,20 @@
   #view canvas { display: block; }
   #overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); pointer-events: none; padding: 16px; }
   #overlay h3 { color: var(--text); margin: 0 0 4px; font-size: 18px; }
-  #status { position: absolute; left: 12px; top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
+  #status { position: absolute; left: 12px; bottom: 12px; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
+  /* Terrain / City switch and the note under it, always on the 3D view */
+  #modeToggle {
+    position: absolute; left: 12px; top: 12px; z-index: 2; display: flex; padding: 3px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0, 0, 0, .12);
+  }
+  #modeToggle button { border: none; background: none; border-radius: 999px; padding: 6px 13px; font-weight: 600; font-size: 13px; color: var(--muted); }
+  #modeToggle button[aria-pressed="true"] { background: linear-gradient(180deg, var(--sky-1), var(--sky-2)); color: #fff; }
+  #viewNote {
+    position: absolute; left: 12px; top: 58px; z-index: 2; max-width: min(430px, calc(100% - 24px)); font-size: 12.5px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 7px 11px; box-shadow: 0 2px 10px rgba(0, 0, 0, .1);
+  }
+  #viewNote[hidden] { display: none; }
+  body:not(.city) .city-only, body:not(.cropped) .crop-only { display: none; }
   #legend { position: absolute; right: 12px; top: 12px; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px; padding: 6px 10px; }
   /* "Enhance… enhance… enhance…" — Super Troopers-style zoom screen while the terrain builds */
   #enhance {
@@ -257,7 +272,11 @@
       <div class="link-hint"></div>
     </div>
     <div id="landingMsg" role="status"></div>
-    <button class="linkish" id="landingDemo">or try a demo ride</button>
+    <div class="demo-links">
+      or try a demo:
+      <button class="linkish" id="landingDemo">⛰️ mountain loop</button>
+      <button class="linkish" id="landingDemoCity">🏙️ city loop</button>
+    </div>
     <details class="help">
       <summary>How do I get a GPX from Strava?</summary>
       <ol>
@@ -296,7 +315,7 @@
       </div>
       <div class="link-hint"></div>
     </div>
-    <div class="btns"><button id="demo">Try a demo loop</button></div>
+    <div class="btns"><button id="demo">⛰️ Demo mountain loop</button><button id="demoCity">🏙️ Demo city loop</button></div>
     <details class="help">
       <summary>How do I get a GPX from Strava?</summary>
       <ol>
@@ -326,9 +345,17 @@
     <label class="row"><span>Base thickness<small>mm below lowest point</small></span><input type="number" id="base" value="3" min="0.6" max="30" step="0.2" data-rebuild></label>
     <label class="row"><span>Mesh detail<small>grid cells across</small></span><input type="number" id="detail" value="300" min="40" max="600" step="10" data-rebuild></label>
     <label class="row"><span>Flatten sea / lakes below 0 m</span><input type="checkbox" id="ocean" checked data-rebuild style="justify-self:end"></label>
-    <label class="row"><span>🏙️ City buildings<small>from OpenStreetMap, on maps under 6 km</small></span><input type="checkbox" id="bldOn" checked data-refetch style="justify-self:end"></label>
-    <label class="row"><span>Building height<small>× true scale</small></span><input type="number" id="bldScale" value="1" min="0.2" max="5" step="0.1" data-rebuild></label>
-    <label class="row"><span>Building color</span><input type="color" id="bldColor" value="#eef1f4" data-rebuild style="justify-self:end"></label>
+    <div class="city-only">
+      <label class="row crop-only"><span>🏙️ City window<small>printable area of a long ride</small></span>
+        <select id="cityKm" data-refetch><option value="2">2 km</option><option value="3" selected>3 km</option><option value="4">4 km</option><option value="5">5 km</option></select>
+      </label>
+      <label class="stack crop-only">Center the window along the ride
+        <input type="range" id="cityFocus" min="0" max="1000" value="500" data-refetch>
+        <small class="meta" id="focusLabel">Auto: middle of the ride</small>
+      </label>
+      <label class="row"><span>Building height<small>× true scale</small></span><input type="number" id="bldScale" value="1" min="0.2" max="5" step="0.1" data-rebuild></label>
+      <label class="row"><span>Building color</span><input type="color" id="bldColor" value="#eef1f4" data-rebuild style="justify-self:end"></label>
+    </div>
     <div class="stats" id="stats"></div>
   </details>
 
@@ -336,7 +363,7 @@
     <summary><h2><b>3</b> Route line</h2></summary>
     <label class="row"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
-    <label class="row"><span>Raise route in cities<small>so it shows between buildings</small></span><input type="checkbox" id="cityLift" checked data-rebuild style="justify-self:end"></label>
+    <label class="row city-only"><span>Raise route in cities<small>so it shows between buildings</small></span><input type="checkbox" id="cityLift" checked data-rebuild style="justify-self:end"></label>
     <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment end markers<small>printed at the start and finish</small></span>
       <select id="segMarkers" data-rebuild>
@@ -429,6 +456,11 @@
   <div id="view">
     <div id="overlay"><div><h3>Drop a ride to start</h3>Your GPX becomes a printable relief map. You can also try the demo loop.</div></div>
     <div id="status"></div>
+    <div id="modeToggle" role="group" aria-label="Map type">
+      <button data-mode="terrain" aria-pressed="false" title="Mountains and open roads">🏔️ Terrain</button>
+      <button data-mode="city" aria-pressed="false" title="Adds buildings; long rides zoom to a downtown window">🏙️ City</button>
+    </div>
+    <div id="viewNote" hidden></div>
     <div id="enhance" aria-live="polite">
       <div class="enh-frame"><i></i><i></i><i></i><i></i></div>
       <div class="enh-text" id="enhText"></div>
@@ -582,6 +614,27 @@ function demoTrack() {
   return { name: 'Demo loop: Mt. Tam', lat, lon, ele };
 }
 
+function demoCityTrack() {
+  // A synthetic downtown San Francisco loop: Embarcadero, Financial District, Telegraph and Russian Hill
+  const lat = [], lon = [], ele = [];
+  for (let i = 0; i <= 400; i++) {
+    const t = (i / 400) * Math.PI * 2;
+    lat.push(37.7962 + 0.0072 * Math.sin(t) + 0.0012 * Math.sin(3 * t));
+    lon.push(-122.4050 + 0.0098 * Math.cos(t) + 0.0015 * Math.cos(2 * t));
+    ele.push(0);
+  }
+  return { name: 'Demo city: San Francisco', lat, lon, ele };
+}
+
+// Mercator point `d` km along a track
+function trackPointM(t, d) {
+  const D = t.dist;
+  let i = 1;
+  while (i < D.length - 1 && D[i] < d) i++;
+  const f = D[i] > D[i - 1] ? clamp((d - D[i - 1]) / (D[i] - D[i - 1]), 0, 1) : 0;
+  return [t.mx[i - 1] + (t.mx[i] - t.mx[i - 1]) * f, t.my[i - 1] + (t.my[i] - t.my[i - 1]) * f];
+}
+
 // ---------- elevation tiles ----------
 const tileCache = new Map();
 const tileCanvas = document.createElement('canvas');
@@ -622,7 +675,19 @@ function computeRegion() {
   if (isFinite(aspect)) {
     if (w / h < aspect) w = h * aspect; else h = w / aspect;
   }
-  return { mx0: cx - w / 2, mx1: cx + w / 2, my0: cy - h / 2, my1: cy + h / 2 };
+  const region = { mx0: cx - w / 2, mx1: cx + w / 2, my0: cy - h / 2, my1: cy + h / 2 };
+  // City mode: a ride too wide for printable buildings becomes a square window of it (2–5 km), centered on the
+  // middle of the ride or on a point the rider picks along it
+  state.rideKm = regionSizeKm(region);
+  state.cityCropped = state.mapMode === 'city' && state.rideKm > BLD_MAX_KM;
+  document.body.classList.toggle('cropped', state.cityCropped);
+  if (!state.cityCropped) return region;
+  if (state.cityFocus != null) {
+    const t = labelRides()[0];
+    [cx, cy] = trackPointM(t, state.cityFocus * t.total);
+  }
+  const half = ((parseFloat($('cityKm').value) || 3) * 1000) / (EARTH * Math.cos(fromMY(cy) * Math.PI / 180)) / 2;
+  return { mx0: cx - half, mx1: cx + half, my0: cy - half, my1: cy + half };
 }
 
 // ---------- "Enhance… enhance… enhance…" loading screen ----------
@@ -699,7 +764,9 @@ async function loadTerrain() {
   setStatus(failed ? `${failed} elevation tile(s) failed to load. Parts of the map may be flat.` : '', !!failed);
   rebuild();
   stopEnhance();
-  loadBuildings(r, token); // terrain shows right away; buildings pop in when OpenStreetMap answers
+  // Terrain shows right away; buildings pop in when their tiles arrive. A new ride first decides Terrain vs City.
+  if (state.mapMode == null) detectMapMode(token);
+  else loadBuildings(r, token);
 }
 
 function demSample(mx, my) {
@@ -719,7 +786,7 @@ function readSettings() {
     segExtra: n('segExtra', 0.6, 0, 6), flattenOcean: $('ocean').checked, cityLift: $('cityLift').checked,
     marker: $('segMarkers').value, markerSize: n('starSize', 10, 3, 25),
     waterOn: $('waterOn').checked, waterColor: $('waterColor').value,
-    bldOn: $('bldOn').checked, bldScale: n('bldScale', 1, 0.2, 5), bldColor: $('bldColor').value,
+    bldOn: state.mapMode === 'city', bldScale: n('bldScale', 1, 0.2, 5), bldColor: $('bldColor').value,
     labelOn: $('labelOn').checked, plateD: n('plateD', 18, 8, 60), labelColor: $('labelColor').value,
     outlineOn: $('outlineOn').checked, outlineColor: $('outlineColor').value, outlineW: n('outlineW', 0.8, 0.3, 3),
     title: $('labelTitle').value.trim(), details: $('labelDetails').value.trim(),
@@ -864,14 +931,17 @@ function buildParts(model, P) {
   const lift = P.cityLift && buildings?.nearRoute.length ? cityRouteLift(buildings.nearRoute) : 0;
   model.routeLift = lift;
   const add = (name, color, path, width, raise) => {
-    const geom = ribbonGeometry(path, width, raise + lift, model);
-    if (geom) ribbons.push({ name, color: color.toLowerCase(), geom });
+    for (const run of clipToMap(path, model)) { // a city window trims the route at the map's edge
+      const geom = ribbonGeometry(run, width, raise + lift, model);
+      if (geom) ribbons.push({ name, color: color.toLowerCase(), geom });
+    }
   };
   // A marker (star, heart, flag…) stands a little taller than its segment at the start and finish
   const addStars = (name, color, t, a, b) => {
     if (!MARKER_SHAPES[P.marker]) return;
     for (const d of [a, b]) {
       const [x, y] = pointAt(t, d);
+      if (x < 0 || y < 0 || x > model.W || y > model.H) continue; // that end is outside the map
       ribbons.push({ name, color: color.toLowerCase(), geom: markerGeometry(P.marker, x, y, P.markerSize / 2, P.routeH + P.segExtra + 1 + lift, model) });
     }
   };
@@ -1020,12 +1090,29 @@ async function buildingTile(x, y) {
   return bldTileCache.get(key);
 }
 
-async function fetchBuildings(r) {
+async function ensureBuildingTiles() {
   if (!vtLibs) {
     const [vt, pbf] = await Promise.all([import('https://cdn.jsdelivr.net/npm/@mapbox/vector-tile@2.0.3/+esm'), import('https://cdn.jsdelivr.net/npm/pbf@4.0.1/+esm')]);
     vtLibs = { VectorTile: vt.VectorTile, Pbf: pbf.default };
   }
   if (!bldTileUrl) bldTileUrl = (await (await fetch(BLD_TILEJSON)).json()).tiles[0];
+}
+
+// A ride counts as a city ride when the ground under its start, middle or end has at least 40 buildings of
+// 15 m or more (about 4+ floors). That picks out downtowns but not suburbs full of houses.
+async function looksLikeCity(t) {
+  await ensureBuildingTiles();
+  const n = 2 ** BLD_Z, tiles = new Set();
+  for (const f of [0.5, 0.15, 0.85]) { const [mx, my] = trackPointM(t, f * t.total); tiles.add(`${Math.floor(mx * n)},${Math.floor(my * n)}`); }
+  for (const key of tiles) {
+    const [x, y] = key.split(',').map(Number);
+    if ((await buildingTile(x, y)).filter((b) => b.h >= 15).length >= 40) return true;
+  }
+  return false;
+}
+
+async function fetchBuildings(r) {
+  await ensureBuildingTiles();
   const n = 2 ** BLD_Z, x0 = Math.floor(r.mx0 * n), x1 = Math.floor(r.mx1 * n), y0 = Math.floor(r.my0 * n), y1 = Math.floor(r.my1 * n);
   if ((x1 - x0 + 1) * (y1 - y0 + 1) > BLD_MAX_TILES) return [];
   const jobs = [];
@@ -1034,7 +1121,7 @@ async function fetchBuildings(r) {
 }
 
 async function loadBuildings(r, token) {
-  if (!$('bldOn').checked) { state.bld = { off: true }; return; }
+  if (state.mapMode !== 'city') { state.bld = { off: true }; return; }
   const km = regionSizeKm(r);
   if (km > BLD_MAX_KM) { state.bld = { tooLarge: true, km }; if (state.model) renderStats(); return; }
   const key = [r.mx0, r.my0, r.mx1, r.my1].map((v) => v.toFixed(7)).join(',');
@@ -1077,6 +1164,28 @@ function convexHull(pts) {
     return h;
   };
   return [...half(p), ...half(p.reverse())];
+}
+
+// Split a path into the runs that lie inside the map (0.4 mm in from the edge), cutting cleanly where it crosses
+function clipToMap(path, m) {
+  const x0 = 0.4, y0 = 0.4, x1 = m.W - 0.4, y1 = m.H - 0.4, runs = [];
+  let run = null;
+  for (let i = 1; i < path.length; i++) {
+    const p = path[i - 1], q = path[i], dx = q[0] - p[0], dy = q[1] - p[1];
+    let t0 = 0, t1 = 1, out = false; // Liang–Barsky
+    for (const [pp, qq] of [[-dx, p[0] - x0], [dx, x1 - p[0]], [-dy, p[1] - y0], [dy, y1 - p[1]]]) {
+      if (pp === 0) { if (qq < 0) out = true; continue; }
+      const r = qq / pp;
+      if (pp < 0) { if (r > t1) out = true; else if (r > t0) t0 = r; } else { if (r < t0) out = true; else if (r < t1) t1 = r; }
+    }
+    if (out) { if (run) { runs.push(run); run = null; } continue; }
+    const a = [p[0] + t0 * dx, p[1] + t0 * dy], b = [p[0] + t1 * dx, p[1] + t1 * dy];
+    if (!run || t0 > 0) { if (run) runs.push(run); run = [a]; }
+    run.push(b);
+    if (t1 < 1) { runs.push(run); run = null; }
+  }
+  if (run) runs.push(run);
+  return runs.filter((r) => r.length >= 2);
 }
 
 // Route lift in cities: half the typical (60th percentile) height of the buildings along the route, 1.5–10 mm
@@ -1555,11 +1664,12 @@ function renderStats() {
     `Elevation ${Math.round(m.minE * u.e)}–${Math.round(m.maxE * u.e)} ${u.el} · terrain zoom ${d.z}` +
     (flat ? `<br><span class="warn">Pretty flat. Try a higher vertical exaggeration.</span>` : '') +
     buildingsNote();
+  updateViewNote();
 }
 
 function buildingsNote() {
   const b = state.bld, built = state.model.parts.buildings, u = units();
-  if (!$('bldOn').checked || !b || b.off || b.error) return '';
+  if (state.mapMode !== 'city' || !b || b.off || b.error) return '';
   if (b.tooLarge) return `<br>Buildings: the map covers ${(b.km * u.d).toFixed(1)} ${u.dl}, too wide for buildings to print. They're added under ${(BLD_MAX_KM * u.d).toFixed(0)} ${u.dl} (try a smaller margin).`;
   if (!built) return '';
   if (!built.kept) return `<br>Buildings: none big enough to print at this size${b.list.length ? ' (try a larger model width)' : ''}.`;
@@ -1570,12 +1680,76 @@ function buildingsNote() {
     (state.model.routeLift ? `<br>Route raised ${state.model.routeLift.toFixed(1)} mm to show between buildings` : '');
 }
 
+// ---------- Terrain / City mode ----------
+// City mode adds buildings and the city settings; Terrain mode hides them. A new ride picks one automatically
+// (looksLikeCity), and the switch on the 3D view overrides it.
+function setMapMode(mode, auto = false) {
+  state.mapMode = mode;
+  state.autoCity = auto;
+  document.body.classList.toggle('city', mode === 'city');
+  document.querySelectorAll('#modeToggle button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+}
+
+async function detectMapMode(token) {
+  let city = false;
+  try { city = await looksLikeCity(labelRides()[0]); } catch (e) { /* no building data: stay on Terrain */ }
+  if (token !== demToken || state.mapMode != null) return;
+  setMapMode(city ? 'city' : 'terrain', city);
+  if (city) loadTerrain(); // may zoom to a downtown window, then adds buildings
+  else updateViewNote();
+}
+
+function resetMapMode() {
+  setMapMode(null);
+  state.cityFocus = null;
+  $('cityFocus').value = 500;
+  $('focusLabel').textContent = 'Auto: middle of the ride';
+  document.body.classList.remove('cropped');
+  updateViewNote();
+}
+
+document.querySelectorAll('#modeToggle button').forEach((b) => {
+  b.onclick = () => {
+    if (!state.tracks.length || state.mapMode === b.dataset.mode) return;
+    setMapMode(b.dataset.mode);
+    loadTerrain();
+  };
+});
+
+$('cityFocus').addEventListener('input', () => {
+  const t = labelRides()[0], u = units();
+  state.cityFocus = $('cityFocus').value / 1000;
+  if (t) $('focusLabel').textContent = `At ${(state.cityFocus * t.total * u.d).toFixed(1)} of ${(t.total * u.d).toFixed(1)} ${u.dl}`;
+});
+
+// A short note on the 3D view explaining what City mode is doing (it isn't hidden in a folded section on phones)
+function updateViewNote() {
+  const el = $('viewNote'), u = units(), b = state.bld, built = state.model?.parts.buildings, parts = [];
+  if (state.mapMode === 'city' && state.tracks.length) {
+    if (state.autoCity) parts.push('Looks like a city ride, so buildings are on.');
+    if (state.cityCropped) {
+      const win = parseFloat($('cityKm').value) * u.d;
+      parts.push(`Your ride is ${(state.rideKm * u.d).toFixed(0)} ${u.dl} across, so this shows a printable ${+win.toFixed(1)} ${u.dl} window of it. <button class="linkish" id="adjustWindow" style="padding:0">Move or resize</button>`);
+    }
+    if (b?.error) parts.push('Couldn\'t load buildings right now. Try again later.');
+    else if (b?.list && built && !built.kept) parts.push('No printable buildings here in OpenStreetMap.');
+  }
+  el.innerHTML = parts.join(' ');
+  el.hidden = !parts.length;
+  $('adjustWindow')?.addEventListener('click', () => {
+    const sec = $('cityKm').closest('.sec');
+    sec.open = true;
+    $('cityKm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
 // ---------- track & segment lists ----------
 function afterTracksChanged() {
   // The opening page shows until a ride loads; removing every ride returns to it
   const wasLanding = document.body.classList.contains('landing');
   document.body.classList.toggle('landing', !state.tracks.length);
-  if (wasLanding && state.tracks.length) { $('landingMsg').textContent = ''; state.enhanceFull = true; resize(); }
+  if (wasLanding && state.tracks.length) { $('landingMsg').textContent = ''; state.enhanceFull = true; resetMapMode(); resize(); }
+  if (!state.tracks.length) resetMapMode();
   renderTracks();
   renderSegments();
   if (!state.tracks.length) {
@@ -2010,6 +2184,7 @@ $('drop').onclick = () => $('file').click();
 $('landingDrop').onclick = () => $('file').click();
 $('landingDrop').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
 $('landingDemo').onclick = () => { addTrack(demoTrack()); afterTracksChanged(); };
+$('landingDemoCity').onclick = () => { addTrack(demoCityTrack()); afterTracksChanged(); };
 
 // ---------- paste-a-Strava-link shortcut ----------
 // A static site can't read rides from Strava, so a pasted link becomes a one-tap link to Strava's own
@@ -2064,6 +2239,7 @@ document.addEventListener('paste', (e) => {
 });
 $('file').onchange = () => { handleFiles([...$('file').files]); $('file').value = ''; };
 $('demo').onclick = () => { addTrack(demoTrack()); afterTracksChanged(); };
+$('demoCity').onclick = () => { addTrack(demoCityTrack()); afterTracksChanged(); };
 let dragDepth = 0;
 addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
 addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
