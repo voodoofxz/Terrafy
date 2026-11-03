@@ -78,6 +78,22 @@
     margin-top: 14px; background: linear-gradient(180deg, var(--sky-1), var(--sky-2)); color: #fff;
     border-radius: 999px; padding: 9px 22px; font-weight: 600;
   }
+  /* Paste-a-Strava-link shortcut */
+  .strava-link { width: 100%; margin-top: 12px; text-align: left; }
+  .link-row { display: flex; gap: 8px; }
+  .link-row input { flex: 1; min-width: 0; padding: 8px 10px; }
+  .linkbtn {
+    flex: none; display: inline-flex; align-items: center; border-radius: 7px; padding: 7px 14px; font-weight: 600; text-decoration: none;
+    background: linear-gradient(180deg, var(--sky-1), var(--sky-2)); color: #fff; white-space: nowrap;
+  }
+  .linkbtn[hidden] { display: none; }
+  .link-hint { font-size: 12.5px; color: var(--muted); margin-top: 6px; min-height: 1em; }
+  .link-hint.bad { color: var(--danger); }
+  .hero-drop.nudge, .drop.nudge { animation: nudge 1.1s ease-in-out 3; }
+  @keyframes nudge {
+    0%, 100% { box-shadow: none; }
+    50% { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
+  }
   .linkish { border: none; background: none; color: var(--accent); padding: 12px 8px 4px; text-decoration: underline; text-underline-offset: 3px; }
   #landingMsg { color: var(--danger); min-height: 1.4em; margin-top: 6px; font-size: 13px; }
   #landing .help { text-align: left; max-width: 420px; }
@@ -233,11 +249,19 @@
       <span>Drop a GPX file from Strava here</span>
       <span class="pill">Choose a file</span>
     </div>
+    <div class="strava-link">
+      <div class="link-row">
+        <input type="url" inputmode="url" autocomplete="off" placeholder="…or paste a Strava ride or route link" aria-label="Strava ride or route link">
+        <a class="linkbtn" target="_blank" rel="noopener" hidden>Get GPX ↗</a>
+      </div>
+      <div class="link-hint"></div>
+    </div>
     <div id="landingMsg" role="status"></div>
     <button class="linkish" id="landingDemo">or try a demo ride</button>
     <details class="help">
       <summary>How do I get a GPX from Strava?</summary>
       <ol>
+        <li><b>Quickest:</b> paste the ride or route link above, tap <i>Get GPX</i>, then drop in the file it downloads.</li>
         <li><b>Activity:</b> open the ride on strava.com → <i>⋯</i> menu → <i>Export GPX</i>.</li>
         <li><b>Route:</b> open the route → <i>Export GPX</i>.</li>
       </ol>
@@ -265,10 +289,18 @@
       <strong>Drop GPX files here</strong>or click to choose (Strava rides or routes)
     </div>
     <input type="file" id="file" accept=".gpx,application/gpx+xml" multiple hidden>
+    <div class="strava-link">
+      <div class="link-row">
+        <input type="url" inputmode="url" autocomplete="off" placeholder="Paste a Strava link" aria-label="Strava ride or route link">
+        <a class="linkbtn" target="_blank" rel="noopener" hidden>Get GPX ↗</a>
+      </div>
+      <div class="link-hint"></div>
+    </div>
     <div class="btns"><button id="demo">Try a demo loop</button></div>
     <details class="help">
       <summary>How do I get a GPX from Strava?</summary>
       <ol>
+        <li><b>Quickest:</b> paste the ride or route link above, click <i>Get GPX</i>, then drop in the file it downloads.</li>
         <li><b>Activity:</b> open the ride on strava.com → <i>⋯</i> menu → <i>Export GPX</i>.</li>
         <li><b>Route:</b> open the route → <i>Export GPX</i> (or <i>⋯</i> → Export GPX).</li>
         <li>Drop one or more files here. Set a file to <i>Highlight</i> to show it as a raised, colored segment.</li>
@@ -1737,6 +1769,58 @@ $('drop').onclick = () => $('file').click();
 $('landingDrop').onclick = () => $('file').click();
 $('landingDrop').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
 $('landingDemo').onclick = () => { addTrack(demoTrack()); afterTracksChanged(); };
+
+// ---------- paste-a-Strava-link shortcut ----------
+// A static site can't read rides from Strava, so a pasted link becomes a one-tap link to Strava's own
+// GPX export. It opens in the visitor's browser, where they're signed in, and the file downloads; they drop it in.
+function parseStravaLink(text) {
+  const s = text.trim();
+  if (!s) return null;
+  if (/strava\.app\.link/i.test(s)) return { short: true };
+  const m = s.match(/strava\.com\/(activities|routes)\/(\d+)/i);
+  if (m) {
+    const kind = m[1].toLowerCase();
+    return { kind: kind === 'routes' ? 'route' : 'ride', url: `https://www.strava.com/${kind}/${m[2]}/export_gpx` };
+  }
+  return { bad: true };
+}
+
+function updateStravaLink(box) {
+  const input = box.querySelector('input'), btn = box.querySelector('.linkbtn'), hint = box.querySelector('.link-hint');
+  const link = parseStravaLink(input.value);
+  btn.hidden = !link?.url;
+  hint.classList.toggle('bad', !!(link?.bad || link?.short));
+  if (!link) hint.textContent = '';
+  else if (link.short) hint.textContent = 'That\'s a share link. Open it in your browser first, then copy the strava.com link from the address bar.';
+  else if (link.bad) hint.textContent = 'That doesn\'t look like a Strava ride or route link (strava.com/activities/… or strava.com/routes/…).';
+  else {
+    btn.href = link.url;
+    btn.textContent = `Get ${link.kind} GPX ↗`;
+    hint.textContent = 'Opens Strava (sign in if asked) and downloads the GPX. Then drop the file in the box above.';
+  }
+}
+
+document.querySelectorAll('.strava-link').forEach((box) => {
+  const input = box.querySelector('input');
+  input.addEventListener('input', () => updateStravaLink(box));
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.querySelector('.linkbtn:not([hidden])')?.click(); });
+  box.querySelector('.linkbtn').addEventListener('click', () => {
+    box.querySelector('.link-hint').textContent = 'Downloading from Strava… When it\'s done, drop the GPX in the box above, or click it to choose the file.';
+    const drop = document.body.classList.contains('landing') ? $('landingDrop') : $('drop');
+    drop.classList.remove('nudge'); void drop.offsetWidth; drop.classList.add('nudge');
+  });
+});
+
+// Pasting a Strava link anywhere on the page (outside a text box) fills in the link box
+document.addEventListener('paste', (e) => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  const text = e.clipboardData?.getData('text') || '';
+  if (!/strava\.(com|app\.link)/i.test(text)) return;
+  const box = document.querySelector(document.body.classList.contains('landing') ? '#landing .strava-link' : 'aside .strava-link');
+  box.querySelector('input').value = text.trim();
+  updateStravaLink(box);
+  box.querySelector('input').focus();
+});
 $('file').onchange = () => { handleFiles([...$('file').files]); $('file').value = ''; };
 $('demo').onclick = () => { addTrack(demoTrack()); afterTracksChanged(); };
 let dragDepth = 0;
