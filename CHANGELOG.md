@@ -2,6 +2,14 @@
 
 All notable changes to Terrafy. Versions follow [Semantic Versioning](https://semver.org/). Terrafy stays on 0.x during beta testing, and 1.0.0 will be the public launch. Each version has a matching git tag (`v0.9.0`, …).
 
+## [0.10.0] - 2026-11-02
+### Added
+- "Enhance... enhance... enhance..." loading screen (with apologies to *Super Troopers*): a zooming reticle with CRT scanlines while the 3D terrain builds. The first build after adding a ride plays all three steps, and later rebuilds only show it if loading is slow.
+- Settings sections fold open and closed by tapping their heading.
+### Changed
+- Simpler phone layout: a compact header, then the 3D map and elevation profile, then the settings with only "Add rides" and "Export" open. The page is now under two screens tall.
+- On narrow screens the 3D view pulls back so the whole map fits, and the profile hint is shorter.
+
 ## [0.9.0] - 2026-11-02
 ### Added
 - Version and build info: the app shows its version, build number, commit and build date on the opening page and in the editor, linked to this changelog and the commit on GitHub.
@@ -52,6 +60,7 @@ All notable changes to Terrafy. Versions follow [Semantic Versioning](https://se
 ### Added
 - First version: load a GPX, get terrain from AWS Terrain Tiles, build a raised route, set color bands with filament-swap heights, drag on the elevation profile to mark segments, add a ride-details label plate and complementary color themes, and export STL, 3MF or a zip of STLs, one per color.
 
+[0.10.0]: https://github.com/voodoofxz/Terrafy/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/voodoofxz/Terrafy/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/voodoofxz/Terrafy/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/voodoofxz/Terrafy/compare/v0.6.0...v0.7.0

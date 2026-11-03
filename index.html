@@ -82,7 +82,13 @@
   #landingMsg { color: var(--danger); min-height: 1.4em; margin-top: 6px; font-size: 13px; }
   #landing .help { text-align: left; max-width: 420px; }
   #landing footer { text-align: center; }
-  section { border-top: 1px solid var(--border); padding: 14px 0 6px; }
+  /* Sidebar sections fold open/closed by tapping their heading */
+  .sec { border-top: 1px solid var(--border); padding: 14px 0 6px; }
+  .sec > summary { list-style: none; cursor: pointer; }
+  .sec > summary::-webkit-details-marker { display: none; }
+  .sec > summary h2::after { content: "\25BE"; margin-left: auto; font-size: 14px; transition: transform .15s; }
+  .sec:not([open]) > summary h2 { margin-bottom: 6px; }
+  .sec:not([open]) > summary h2::after { transform: rotate(-90deg); }
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   h2 b { background: var(--badge); color: #fff; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; font-size: 11px; }
   label.row { display: grid; grid-template-columns: 1fr 92px; align-items: center; gap: 8px; margin: 6px 0; }
@@ -141,6 +147,29 @@
   #overlay h3 { color: var(--text); margin: 0 0 4px; font-size: 18px; }
   #status { position: absolute; left: 12px; top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
   #legend { position: absolute; right: 12px; top: 12px; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px; padding: 6px 10px; }
+  /* "Enhance… enhance… enhance…" — Super Troopers-style zoom screen while the terrain builds */
+  #enhance {
+    position: absolute; inset: 0; z-index: 3; display: none; place-items: center; align-content: center; gap: 10px;
+    background: radial-gradient(circle at center, #062033 0%, #020914 75%); color: #36f5c0; text-align: center;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; transition: opacity .35s;
+  }
+  #enhance.on { display: grid; }
+  #enhance.fade { opacity: 0; }
+  #enhance::after { /* CRT scanlines */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 2px, transparent 2px 4px);
+  }
+  .enh-frame { position: relative; width: 150px; height: 100px; }
+  .enh-frame i { position: absolute; width: 22px; height: 22px; border: 3px solid #36f5c0; filter: drop-shadow(0 0 6px #36f5c0); }
+  .enh-frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+  .enh-frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+  .enh-frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+  .enh-frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+  .enh-frame.zoom { animation: enh-zoom .65s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes enh-zoom { from { transform: scale(2.4); opacity: .2; filter: blur(3px); } to { transform: scale(1); opacity: 1; filter: none; } }
+  .enh-text { font-size: clamp(18px, 3.2vw, 30px); font-weight: 700; letter-spacing: .04em; text-shadow: 0 0 12px rgba(54, 245, 192, .7); padding: 0 16px; }
+  .enh-sub { font-size: 12px; color: #7fb7c9; letter-spacing: .08em; text-transform: uppercase; }
+  @media (prefers-reduced-motion: reduce) { .enh-frame.zoom { animation: none; } #enhance { transition: none; } }
   #profileWrap { position: relative; background: var(--panel); border-top: 1px solid var(--border); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
   .steps { font-size: 12.5px; color: var(--muted); padding-left: 18px; margin: 0 0 10px; }
   .steps li { margin: 3px 0; }
@@ -166,10 +195,20 @@
   footer a { color: inherit; }
   .build-info { margin-top: 6px; font-variant-numeric: tabular-nums; opacity: 0.85; }
   .build-info a { text-decoration: none; border-bottom: 1px dotted currentColor; }
+  /* Phones: compact header, then the 3D map and profile, then the (folded) settings */
   @media (max-width: 820px) {
-    body { display: block; height: auto; overflow: auto; }
-    aside { border-right: none; border-bottom: 1px solid var(--border); }
-    main { grid-template-rows: 60vh 230px; }
+    body { display: flex; flex-direction: column; height: auto; min-height: 100vh; overflow: auto; }
+    aside { display: contents; }
+    aside > * { background: var(--panel); padding-left: 16px; padding-right: 16px; }
+    aside > .brand { order: 0; flex-direction: row; gap: 10px; margin: 0; padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .brand img { width: 56px; height: 56px; }
+    .brand .tag { margin: 0; font-size: 13px; }
+    .brand .theme-toggle { top: 50%; right: 12px; transform: translateY(-50%); }
+    main { order: 1; grid-template-rows: 52vh 200px; }
+    aside > .sec { order: 2; }
+    aside > footer { order: 3; margin: 0; padding-top: 14px; padding-bottom: 24px; }
+    #legend { display: none; }
+    .phead .hint { display: none; }
   }
 </style>
 <script type="importmap">
@@ -220,8 +259,8 @@
     <button class="theme-toggle" title="Switch light/dark" aria-label="Switch light/dark"></button>
   </div>
 
-  <section>
-    <h2><b>1</b> Add rides</h2>
+  <details class="sec" open>
+    <summary><h2><b>1</b> Add rides</h2></summary>
     <div class="drop" id="drop">
       <strong>Drop GPX files here</strong>or click to choose (Strava rides or routes)
     </div>
@@ -237,10 +276,10 @@
       Everything runs in your browser. Your files are never uploaded.
     </details>
     <div class="list" id="tracks"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>2</b> Map &amp; print size</h2>
+  <details class="sec" open>
+    <summary><h2><b>2</b> Map &amp; print size</h2></summary>
     <label class="row">Map shape
       <select id="shape" data-refetch>
         <option value="fit">Fit to ride</option>
@@ -256,10 +295,10 @@
     <label class="row"><span>Mesh detail<small>grid cells across</small></span><input type="number" id="detail" value="300" min="40" max="600" step="10" data-rebuild></label>
     <label class="row"><span>Flatten sea / lakes below 0 m</span><input type="checkbox" id="ocean" checked data-rebuild style="justify-self:end"></label>
     <div class="stats" id="stats"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>3</b> Route line</h2>
+  <details class="sec" open>
+    <summary><h2><b>3</b> Route line</h2></summary>
     <label class="row"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
@@ -271,10 +310,10 @@
       </select>
     </label>
     <label class="row"><span>Marker size<small>mm across</small></span><input type="number" id="starSize" value="10" min="3" max="25" step="0.5" data-rebuild></label>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>4</b> Ride details</h2>
+  <details class="sec" open>
+    <summary><h2><b>4</b> Ride details</h2></summary>
     <label class="row"><span>Label plate<small>raised text along the front edge</small></span><input type="checkbox" id="labelOn" checked data-rebuild style="justify-self:end"></label>
     <label class="stack">Title<input type="text" id="labelTitle" data-rebuild data-label></label>
     <label class="stack">Details<input type="text" id="labelDetails" data-rebuild data-label></label>
@@ -293,10 +332,10 @@
     <label class="row"><span>Outline color</span><input type="color" id="outlineColor" value="#111111" data-rebuild style="justify-self:end"></label>
     <label class="row"><span>Outline width<small>mm</small></span><input type="number" id="outlineW" value="0.8" min="0.3" max="3" step="0.1" data-rebuild></label>
     <div class="btns"><button id="labelReset">Reset to ride stats</button></div>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>5</b> Colors</h2>
+  <details class="sec" open>
+    <summary><h2><b>5</b> Colors</h2></summary>
     <div class="themes" id="themes"></div>
     <label class="row"><span>Color bands<small>filament swaps by height</small></span>
       <select id="bandCount">
@@ -311,10 +350,10 @@
     </div>
     <div class="swaps" id="swaps"></div>
     <p class="help">On a single-extruder printer, add a filament change (pause) at each height above. With an AMS or MMU, print the 3MF and give the route and segments their own filaments.</p>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>6</b> Favorite segments</h2>
+  <details class="sec" open>
+    <summary><h2><b>6</b> Favorite segments</h2></summary>
     <p class="help" style="margin-top:0">Segments print raised in their own color, with a marker (★ ❤️ ⚡ 🚩 …) at each end. To mark one:</p>
     <ol class="steps">
       <li>Find the <b>Elevation profile</b> chart at the bottom of the page.</li>
@@ -330,17 +369,17 @@
       <button id="rgGo">Select</button>
     </div>
     <div class="list" id="segments"></div>
-  </section>
+  </details>
 
-  <section>
-    <h2><b>7</b> Export</h2>
+  <details class="sec" open>
+    <summary><h2><b>7</b> Export</h2></summary>
     <div class="btns">
       <button class="primary" id="ex3mf" disabled>3MF (multi-color)</button>
       <button id="exStl" disabled>STL (single)</button>
       <button id="exZip" disabled>STL per color (.zip)</button>
     </div>
     <p class="help">3MF keeps the terrain, route and each segment color as separate parts of one object, ready for Bambu Studio, PrusaSlicer or Orca.</p>
-  </section>
+  </details>
 
   <footer>
     Elevation: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles on AWS</a>
@@ -354,6 +393,11 @@
   <div id="view">
     <div id="overlay"><div><h3>Drop a ride to start</h3>Your GPX becomes a printable relief map. You can also try the demo loop.</div></div>
     <div id="status"></div>
+    <div id="enhance" aria-live="polite">
+      <div class="enh-frame"><i></i><i></i><i></i><i></i></div>
+      <div class="enh-text" id="enhText"></div>
+      <div class="enh-sub" id="enhSub"></div>
+    </div>
     <div id="legend">Drag to orbit · scroll to zoom · right-drag to pan</div>
   </div>
   <div id="profileWrap">
@@ -545,6 +589,48 @@ function computeRegion() {
   return { mx0: cx - w / 2, mx1: cx + w / 2, my0: cy - h / 2, my1: cy + h / 2 };
 }
 
+// ---------- "Enhance… enhance… enhance…" loading screen ----------
+// Each step zooms the reticle in. The first build after leaving the opening page plays all three steps;
+// later rebuilds only show the screen if loading takes long enough to notice.
+const ENHANCE_STEPS = ['Enhance...', 'Enhance... enhance...', 'Enhance... enhance... enhance...'];
+const enh = { timer: null, delay: null, step: 0, since: 0, full: false, gen: 0 };
+
+function startEnhance(full, sub) {
+  enh.gen++;
+  clearTimeout(enh.delay);
+  $('enhSub').textContent = sub || '';
+  if (enh.timer) return; // already on screen
+  const show = () => {
+    const el = $('enhance'), frame = el.querySelector('.enh-frame');
+    el.classList.remove('fade'); el.classList.add('on');
+    enh.step = 0; enh.since = performance.now(); enh.full = full;
+    const tick = () => {
+      $('enhText').textContent = ENHANCE_STEPS[Math.min(enh.step++, ENHANCE_STEPS.length - 1)];
+      frame.classList.remove('zoom'); void frame.offsetWidth; frame.classList.add('zoom'); // restart the zoom
+    };
+    tick();
+    enh.timer = setInterval(tick, 700);
+  };
+  if (full) show(); else enh.delay = setTimeout(show, 250);
+}
+
+function stopEnhance() {
+  clearTimeout(enh.delay);
+  if (!enh.timer) return;
+  const gen = enh.gen, wait = enh.full ? Math.max(0, ENHANCE_STEPS.length * 700 - (performance.now() - enh.since)) : 0;
+  setTimeout(() => {
+    if (gen !== enh.gen) return; // a new load started meanwhile
+    clearInterval(enh.timer); enh.timer = null;
+    $('enhText').textContent = 'Enhanced.';
+    const el = $('enhance');
+    setTimeout(() => {
+      if (gen !== enh.gen) return;
+      el.classList.add('fade');
+      setTimeout(() => { if (gen === enh.gen) el.classList.remove('on', 'fade'); }, 350);
+    }, 450);
+  }, wait);
+}
+
 let demToken = 0;
 async function loadTerrain() {
   if (!state.tracks.length) return;
@@ -558,7 +644,8 @@ async function loadTerrain() {
     if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 30) break;
   }
   const cols = tx1 - tx0 + 1, rows = ty1 - ty0 + 1;
-  setStatus(`Loading elevation (${cols * rows} tiles, zoom ${z})…`);
+  startEnhance(state.enhanceFull, `Pulling ${cols * rows} terrain tiles · zoom ${z}`);
+  state.enhanceFull = false;
   const w = cols * 256, h = rows * 256, data = new Float32Array(w * h);
   const jobs = [];
   let failed = 0;
@@ -570,11 +657,12 @@ async function loadTerrain() {
   }
   await Promise.all(jobs);
   if (token !== demToken) return;
-  if (failed === jobs.length) { setStatus('Could not load elevation data. Check your connection and try again.', true); return; }
+  if (failed === jobs.length) { stopEnhance(); setStatus('Could not load elevation data. Check your connection and try again.', true); return; }
   state.dem = { z, tx0, ty0, w, h, data, tiles: jobs.length };
   state.region = r;
   setStatus(failed ? `${failed} elevation tile(s) failed to load. Parts of the map may be flat.` : '', !!failed);
   rebuild();
+  stopEnhance();
 }
 
 function demSample(mx, my) {
@@ -1046,7 +1134,8 @@ function updateScene(m) {
   const key = `${m.W.toFixed(1)}x${depth.toFixed(1)}`;
   if (state.lastFit !== key) {
     state.lastFit = key;
-    const span = Math.max(m.W, depth), cy = (y0 + m.H) / 2;
+    // Pull the camera back on tall, narrow views (phones) so the whole map fits across
+    const span = Math.max(m.W, depth) * Math.max(1, 1.3 / camera.aspect), cy = (y0 + m.H) / 2;
     controls.target.set(m.W / 2, cy, m.maxZ / 3);
     camera.position.set(m.W / 2, cy - span * 1.15, span * 0.85);
     camera.far = span * 20; camera.near = span / 500; camera.updateProjectionMatrix();
@@ -1214,7 +1303,7 @@ function afterTracksChanged() {
   // The opening page shows until a ride loads; removing every ride returns to it
   const wasLanding = document.body.classList.contains('landing');
   document.body.classList.toggle('landing', !state.tracks.length);
-  if (wasLanding && state.tracks.length) { $('landingMsg').textContent = ''; resize(); }
+  if (wasLanding && state.tracks.length) { $('landingMsg').textContent = ''; state.enhanceFull = true; resize(); }
   renderTracks();
   renderSegments();
   if (!state.tracks.length) {
@@ -1352,7 +1441,7 @@ function drawProfile() {
 
   // first-time hint
   if (!state.sel && !dragging && !state.segments.some((s) => s.trackId === t.id)) {
-    const msg = '←  Click and drag across this chart to mark a favorite segment  →';
+    const msg = pw > 460 ? '←  Click and drag across this chart to mark a favorite segment  →' : '←  Drag here to mark a segment  →';
     ctx.font = '600 12px system-ui, sans-serif';
     const tw = ctx.measureText(msg).width, cx = PAD.l + pw / 2, by = PAD.t + 8;
     ctx.fillStyle = css.getPropertyValue('--panel').trim();
@@ -1689,6 +1778,12 @@ async function loadBuildInfo() {
   for (const el of document.querySelectorAll('.build-info')) el.innerHTML = 'Terrafy ' + parts.join(' · ');
 }
 loadBuildInfo();
+
+// On phones, start with only "Add rides" and "Export" open; every other section opens with a tap
+if (matchMedia('(max-width: 820px)').matches) {
+  const secs = document.querySelectorAll('aside .sec');
+  secs.forEach((s, i) => { s.open = i === 0 || i === secs.length - 1; });
+}
 
 resetBands(4);
 renderThemes();
