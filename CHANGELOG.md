@@ -2,6 +2,13 @@
 
 All notable changes to Terrafy. Versions follow [Semantic Versioning](https://semver.org/). Terrafy stays on 0.x during beta testing, and 1.0.0 will be the public launch. Each version has a matching git tag (`v0.9.0`, …).
 
+## [0.15.0] - 2026-11-02
+### Added
+- Simple / Advanced switch at the top of the settings. Simple is the default and shows only the essentials (10 controls instead of 37): model width, vertical exaggeration, segment markers, label title, details and font, color themes, segments and export. Advanced shows everything. The choice is remembered.
+- Preview shading: steep ground reads darker, and a thin contour line marks each color change (where filament swaps happen), so the land's shape shows through flat band colors. Preview only; prints are unchanged.
+### Changed
+- Retuned 11 color themes so they don't drown out terrain detail. No lowland is near-black any more (darkest band brightness is now at least 0.05, up from as low as 0.006), and every step between bands has at least 1.4:1 contrast (Unicorn 1.34). The biggest changes are to Ultraviolet, Volcanic Ice, Lavender Gold and Unicorn.
+
 ## [0.14.0] - 2026-11-02
 ### Added
 - 🏔️ Terrain / 🏙️ City switch on the 3D view. City mode adds buildings and shows the city settings, and Terrain mode hides them. This replaces the old "City buildings" checkbox.
@@ -88,6 +95,7 @@ All notable changes to Terrafy. Versions follow [Semantic Versioning](https://se
 ### Added
 - First version: load a GPX, get terrain from AWS Terrain Tiles, build a raised route, set color bands with filament-swap heights, drag on the elevation profile to mark segments, add a ride-details label plate and complementary color themes, and export STL, 3MF or a zip of STLs, one per color.
 
+[0.15.0]: https://github.com/voodoofxz/Terrafy/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/voodoofxz/Terrafy/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/voodoofxz/Terrafy/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/voodoofxz/Terrafy/compare/v0.11.0...v0.12.0

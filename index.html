@@ -8,6 +8,10 @@
 <script>
   // Apply the saved light/dark choice before first paint
   try { const t = localStorage.getItem('terrafy-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  // Simple shows only the essentials until the visitor picks Advanced (remembered)
+  let detail = 'simple';
+  try { detail = localStorage.getItem('terrafy-detail') || 'simple'; } catch (e) {}
+  document.documentElement.classList.toggle('simple', detail === 'simple');
 </script>
 <meta name="description" content="Turn your Strava rides and routes into 3D-printable topographic maps. Color the terrain, mark your favorite segments, export STL or 3MF.">
 <style>
@@ -177,6 +181,11 @@
   }
   #viewNote[hidden] { display: none; }
   body:not(.city) .city-only, body:not(.cropped) .crop-only { display: none; }
+  /* Simple / Advanced: Simple hides every .adv setting */
+  html.simple .adv { display: none !important; }
+  .detail-toggle { display: flex; padding: 3px; margin: 0 0 12px; border-radius: 999px; background: var(--input); border: 1px solid var(--border); }
+  .detail-toggle button { flex: 1; border: none; background: none; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 13px; color: var(--muted); }
+  .detail-toggle button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
   #legend { position: absolute; right: 12px; top: 12px; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); border-radius: 8px; padding: 6px 10px; }
   /* "Enhance… enhance… enhance…" — Super Troopers-style zoom screen while the terrain builds */
   #enhance {
@@ -237,6 +246,7 @@
     .brand .theme-toggle { top: 50%; right: 12px; transform: translateY(-50%); }
     main { order: 1; grid-template-rows: 52vh 200px; }
     aside > .sec { order: 2; }
+    aside > .detail-toggle { order: 2; margin: 12px 16px 0; padding: 3px; }
     aside > footer { order: 3; margin: 0; padding-top: 14px; padding-bottom: 24px; }
     #legend { display: none; }
     .phead .hint { display: none; }
@@ -301,6 +311,10 @@
     <p class="tag">Your route. Made real.</p>
     <button class="theme-toggle" title="Switch light/dark" aria-label="Switch light/dark"></button>
   </div>
+  <div class="detail-toggle" role="group" aria-label="How many options to show">
+    <button data-detail="simple" aria-pressed="true">Simple</button>
+    <button data-detail="advanced" aria-pressed="false">Advanced</button>
+  </div>
 
   <details class="sec" open>
     <summary><h2><b>1</b> Add rides</h2></summary>
@@ -331,7 +345,7 @@
 
   <details class="sec" open>
     <summary><h2><b>2</b> Map &amp; print size</h2></summary>
-    <label class="row">Map shape
+    <label class="row adv">Map shape
       <select id="shape" data-refetch>
         <option value="fit">Fit to ride</option>
         <option value="1">Square</option>
@@ -339,12 +353,12 @@
         <option value="0.75">Portrait 3:4</option>
       </select>
     </label>
-    <label class="row"><span>Margin around ride<small>% of ride size</small></span><input type="number" id="margin" value="12" min="0" max="200" step="1" data-refetch></label>
+    <label class="row adv"><span>Margin around ride<small>% of ride size</small></span><input type="number" id="margin" value="12" min="0" max="200" step="1" data-refetch></label>
     <label class="row"><span>Model width<small>mm (longest printer axis)</small></span><input type="number" id="width" value="150" min="30" max="400" step="5" data-rebuild></label>
     <label class="row"><span>Vertical exaggeration<small>1 = true scale</small></span><input type="number" id="exag" value="2" min="0.2" max="20" step="0.1" data-rebuild></label>
-    <label class="row"><span>Base thickness<small>mm below lowest point</small></span><input type="number" id="base" value="3" min="0.6" max="30" step="0.2" data-rebuild></label>
-    <label class="row"><span>Mesh detail<small>grid cells across</small></span><input type="number" id="detail" value="300" min="40" max="600" step="10" data-rebuild></label>
-    <label class="row"><span>Flatten sea / lakes below 0 m</span><input type="checkbox" id="ocean" checked data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Base thickness<small>mm below lowest point</small></span><input type="number" id="base" value="3" min="0.6" max="30" step="0.2" data-rebuild></label>
+    <label class="row adv"><span>Mesh detail<small>grid cells across</small></span><input type="number" id="detail" value="300" min="40" max="600" step="10" data-rebuild></label>
+    <label class="row adv"><span>Flatten sea / lakes below 0 m</span><input type="checkbox" id="ocean" checked data-rebuild style="justify-self:end"></label>
     <div class="city-only">
       <label class="row crop-only"><span>🏙️ City window<small>printable area of a long ride</small></span>
         <select id="cityKm" data-refetch><option value="2">2 km</option><option value="3" selected>3 km</option><option value="4">4 km</option><option value="5">5 km</option></select>
@@ -353,18 +367,18 @@
         <input type="range" id="cityFocus" min="0" max="1000" value="500" data-refetch>
         <small class="meta" id="focusLabel">Auto: middle of the ride</small>
       </label>
-      <label class="row"><span>Building height<small>× true scale</small></span><input type="number" id="bldScale" value="1" min="0.2" max="5" step="0.1" data-rebuild></label>
-      <label class="row"><span>Building color</span><input type="color" id="bldColor" value="#eef1f4" data-rebuild style="justify-self:end"></label>
+      <label class="row adv"><span>Building height<small>× true scale</small></span><input type="number" id="bldScale" value="1" min="0.2" max="5" step="0.1" data-rebuild></label>
+      <label class="row adv"><span>Building color</span><input type="color" id="bldColor" value="#eef1f4" data-rebuild style="justify-self:end"></label>
     </div>
     <div class="stats" id="stats"></div>
   </details>
 
   <details class="sec" open>
     <summary><h2><b>3</b> Route line</h2></summary>
-    <label class="row"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
-    <label class="row"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
-    <label class="row city-only"><span>Raise route in cities<small>so it shows between buildings</small></span><input type="checkbox" id="cityLift" checked data-rebuild style="justify-self:end"></label>
-    <label class="row"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
+    <label class="row adv"><span>Route width<small>mm</small></span><input type="number" id="routeW" value="1.4" min="0.4" max="6" step="0.1" data-rebuild></label>
+    <label class="row adv"><span>Route height<small>mm above terrain</small></span><input type="number" id="routeH" value="0.8" min="0.2" max="6" step="0.1" data-rebuild></label>
+    <label class="row adv city-only"><span>Raise route in cities<small>so it shows between buildings</small></span><input type="checkbox" id="cityLift" checked data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Segment extra height<small>mm, so favorites stand out</small></span><input type="number" id="segExtra" value="0.6" min="0" max="6" step="0.1" data-rebuild></label>
     <label class="row"><span>Segment end markers<small>printed at the start and finish</small></span>
       <select id="segMarkers" data-rebuild>
         <option value="star">★ Star</option><option value="heart">❤️ Heart</option><option value="bolt">⚡ Lightning</option>
@@ -372,15 +386,15 @@
         <option value="gem">💎 Gem</option><option value="dot">⚪ Dot</option><option value="none">None</option>
       </select>
     </label>
-    <label class="row"><span>Marker size<small>mm across</small></span><input type="number" id="starSize" value="10" min="3" max="25" step="0.5" data-rebuild></label>
+    <label class="row adv"><span>Marker size<small>mm across</small></span><input type="number" id="starSize" value="10" min="3" max="25" step="0.5" data-rebuild></label>
   </details>
 
   <details class="sec" open>
     <summary><h2><b>4</b> Ride details</h2></summary>
-    <label class="row"><span>Label plate<small>raised text along the front edge</small></span><input type="checkbox" id="labelOn" checked data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Label plate<small>raised text along the front edge</small></span><input type="checkbox" id="labelOn" checked data-rebuild style="justify-self:end"></label>
     <label class="stack">Title<input type="text" id="labelTitle" data-rebuild data-label></label>
     <label class="stack">Details<input type="text" id="labelDetails" data-rebuild data-label></label>
-    <label class="row"><span>Plate depth<small>mm</small></span><input type="number" id="plateD" value="18" min="8" max="60" step="1" data-rebuild></label>
+    <label class="row adv"><span>Plate depth<small>mm</small></span><input type="number" id="plateD" value="18" min="8" max="60" step="1" data-rebuild></label>
     <label class="row"><span>Font</span>
       <select id="labelFont">
         <option value="helvetiker_bold">Bold sans</option>
@@ -390,29 +404,29 @@
         <option value="droid/droid_sans_mono_regular">Mono</option>
       </select>
     </label>
-    <label class="row"><span>Text color</span><input type="color" id="labelColor" value="#ffffff" data-rebuild style="justify-self:end"></label>
-    <label class="row"><span>Outline text<small>a contrasting border so words pop</small></span><input type="checkbox" id="outlineOn" data-rebuild style="justify-self:end"></label>
-    <label class="row"><span>Outline color</span><input type="color" id="outlineColor" value="#111111" data-rebuild style="justify-self:end"></label>
-    <label class="row"><span>Outline width<small>mm</small></span><input type="number" id="outlineW" value="0.8" min="0.3" max="3" step="0.1" data-rebuild></label>
+    <label class="row adv"><span>Text color</span><input type="color" id="labelColor" value="#ffffff" data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Outline text<small>a contrasting border so words pop</small></span><input type="checkbox" id="outlineOn" data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Outline color</span><input type="color" id="outlineColor" value="#111111" data-rebuild style="justify-self:end"></label>
+    <label class="row adv"><span>Outline width<small>mm</small></span><input type="number" id="outlineW" value="0.8" min="0.3" max="3" step="0.1" data-rebuild></label>
     <div class="btns"><button id="labelReset">Reset to ride stats</button></div>
   </details>
 
   <details class="sec" open>
     <summary><h2><b>5</b> Colors</h2></summary>
     <div class="themes" id="themes"></div>
-    <label class="row"><span>Color bands<small>filament swaps by height</small></span>
+    <label class="row adv"><span>Color bands<small>filament swaps by height</small></span>
       <select id="bandCount">
         <option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option>
       </select>
     </label>
-    <div id="bands"></div>
-    <div class="band">
+    <div id="bands" class="adv"></div>
+    <div class="band adv">
       <input type="color" id="waterColor" value="#2f7fd8" data-rebuild title="Water color">
       <span class="lbl">Water (sea &amp; lakes at 0 m)</span>
       <label class="meta"><input type="checkbox" id="waterOn" checked data-rebuild> show</label>
     </div>
     <div class="swaps" id="swaps"></div>
-    <p class="help">On a single-extruder printer, add a filament change (pause) at each height above. With an AMS or MMU, print the 3MF and give the route and segments their own filaments.</p>
+    <p class="help adv">On a single-extruder printer, add a filament change (pause) at each height above. With an AMS or MMU, print the 3MF and give the route and segments their own filaments.</p>
   </details>
 
   <details class="sec" open>
@@ -423,7 +437,7 @@
       <li>Press and hold where the segment starts, drag to where it ends, then let go. The 3D map shows a dot where you are.</li>
       <li>In the box that pops up, name it, pick a color and click <b>Add segment</b>.</li>
     </ol>
-    <div class="range">
+    <div class="range adv">
       <span>Or type it:</span>
       <input type="number" id="rgFrom" min="0" step="0.1" placeholder="from">
       <span>to</span>
@@ -505,19 +519,19 @@ const BAND_DEFAULTS = ['#3d5a3a', '#6f8f4e', '#c8b47a', '#9a7a5a', '#d9d4c7', '#
 // Terrain ramps (low → high) paired with a route color from the opposite side of the color wheel.
 // `water` is chosen to stand apart from the theme's lowland color so the coastline reads clearly.
 const THEMES = [
-  { name: 'Alpine Sunset', bands: ['#0b3c5d', '#1d6a8a', '#5fa8c8', '#e4f3f8'], route: '#ff7a1a', segs: ['#ffd23f', '#ff4f79', '#ffffff'], label: '#ff7a1a', water: '#52d6ff' },
-  { name: 'Desert Bloom', bands: ['#6b2f17', '#b5653a', '#dda15e', '#f6e7c8'], route: '#14b8a6', segs: ['#2563eb', '#a7f3d0', '#ffffff'], label: '#14b8a6', water: '#1d4ed8' },
-  { name: 'Forest & Flame', bands: ['#163026', '#2f6b45', '#6fa86b', '#d4ebc2'], route: '#e0245e', segs: ['#ff9f1c', '#ffd6e0', '#ffffff'], label: '#ffffff', water: '#1e88e5' },
-  { name: 'Lavender Gold', bands: ['#2d1b4e', '#553c8b', '#9a7fd1', '#ebe3fa'], route: '#ffcc00', segs: ['#ff8c42', '#7cffcb', '#ffffff'], label: '#ffcc00', water: '#38bdf8' },
-  { name: 'Ocean Coral', bands: ['#03363f', '#0a7b83', '#4fc0bf', '#d2f5ef'], route: '#ff6b5b', segs: ['#ffc145', '#ff99c8', '#ffffff'], label: '#ff6b5b', water: '#2563eb' },
-  { name: 'Volcanic Ice', bands: ['#1c1416', '#5a1f1b', '#a3402a', '#e0a07a'], route: '#22d3ee', segs: ['#a3e635', '#e0f2fe', '#ffffff'], label: '#22d3ee', water: '#1e90ff' },
-  { name: 'Terrafy', bands: ['#013836', '#0f7a6a', '#3fc4b0', '#e6faf6'], route: '#ff6a3d', segs: ['#017ffd', '#ffd23f', '#ffffff'], label: '#ffffff', water: '#017ffd' },
-  { name: 'Autumn Ridge', bands: ['#3d2f0f', '#7a5a14', '#c9922a', '#f3dca0'], route: '#3b5bdb', segs: ['#74c0fc', '#e599f7', '#ffffff'], label: '#3b5bdb', water: '#1d4ed8' },
-  { name: 'Ultraviolet', bands: ['#140b2e', '#3c1a78', '#7b3fd1', '#cdb4ff'], route: '#a3e635', segs: ['#facc15', '#22d3ee', '#ffffff'], label: '#a3e635', water: '#06b6d4' },
-  { name: 'Rose & Sage', bands: ['#4a1f2e', '#9e4a64', '#d98ba0', '#fbe4ea'], route: '#2fbf71', segs: ['#1c7ed6', '#ffd43b', '#ffffff'], label: '#2fbf71', water: '#3b82f6' },
+  { name: 'Alpine Sunset', bands: ["#155382", "#2a7aa6", "#6fb3d2", "#e8f5fa"], route: '#ff7a1a', segs: ['#ffd23f', '#ff4f79', '#ffffff'], label: '#ff7a1a', water: '#52d6ff' },
+  { name: 'Desert Bloom', bands: ["#7a3519", "#b8683b", "#dfa660", "#f7ead0"], route: '#14b8a6', segs: ['#2563eb', '#a7f3d0', '#ffffff'], label: '#14b8a6', water: '#1d4ed8' },
+  { name: 'Forest & Flame', bands: ["#24503b", "#3d7f53", "#7cb875", "#dcefcd"], route: '#e0245e', segs: ['#ff9f1c', '#ffd6e0', '#ffffff'], label: '#ffffff', water: '#1e88e5' },
+  { name: 'Lavender Gold', bands: ["#4c3782", "#7058b0", "#ab94dc", "#efe9fc"], route: '#ffcc00', segs: ['#ff8c42', '#7cffcb', '#ffffff'], label: '#ffcc00', water: '#38bdf8' },
+  { name: 'Ocean Coral', bands: ["#0c4f5b", "#148a8f", "#5cc8c4", "#d8f7f1"], route: '#ff6b5b', segs: ['#ffc145', '#ff99c8', '#ffffff'], label: '#ff6b5b', water: '#2563eb' },
+  { name: 'Volcanic Ice', bands: ["#544044", "#a4452f", "#d8774c", "#f5d0b0"], route: '#22d3ee', segs: ['#a3e635', '#e0f2fe', '#ffffff'], label: '#22d3ee', water: '#1e90ff' },
+  { name: 'Terrafy', bands: ["#0b5049", "#178a77", "#4ccdb6", "#e9fbf7"], route: '#ff6a3d', segs: ['#017ffd', '#ffd23f', '#ffffff'], label: '#ffffff', water: '#017ffd' },
+  { name: 'Autumn Ridge', bands: ["#5a4618", "#8c6a1c", "#d29f37", "#f6e2ad"], route: '#3b5bdb', segs: ['#74c0fc', '#e599f7', '#ffffff'], label: '#3b5bdb', water: '#1d4ed8' },
+  { name: 'Ultraviolet', bands: ["#45308a", "#6a46c4", "#a07af0", "#e6dbff"], route: '#a3e635', segs: ['#facc15', '#22d3ee', '#ffffff'], label: '#a3e635', water: '#06b6d4' },
+  { name: 'Rose & Sage', bands: ["#6a3141", "#a8566f", "#de98ab", "#fcebef"], route: '#2fbf71', segs: ['#1c7ed6', '#ffd43b', '#ffffff'], label: '#2fbf71', water: '#3b82f6' },
   // Just for fun. `count` switches the map to that many color bands so every color shows.
   { name: 'Rainbow', count: 6, bands: ['#e81416', '#ff8c00', '#ffd400', '#2bb34a', '#1e6fff', '#8b2fd9'], route: '#ffffff', segs: ['#111111', '#ff4fd8', '#00e5ff'], label: '#ffffff', water: '#00e5ff' },
-  { name: 'Unicorn', count: 5, bands: ['#b57bff', '#ff8fd0', '#7fd8ff', '#9ff5d4', '#fff6b8'], route: '#7c1fd6', segs: ['#ff2ec4', '#ffc400', '#00c2e0'], label: '#ff2ec4', water: '#4f46e5' },
+  { name: 'Unicorn', count: 5, bands: ["#7d45d8", "#e85aac", "#4fb6ec", "#88e3bb", "#fff2a1"], route: '#7c1fd6', segs: ['#ff2ec4', '#ffc400', '#00c2e0'], label: '#ff2ec4', water: '#4f46e5' },
 ];
 
 const state = {
@@ -1466,14 +1480,24 @@ const terrainMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 
 terrainMat.onBeforeCompile = (shader) => {
   Object.assign(shader.uniforms, bandUniforms);
   shader.vertexShader = shader.vertexShader
-    .replace('#include <common>', '#include <common>\nvarying float vZ;')
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvZ = position.z;');
+    .replace('#include <common>', '#include <common>\nvarying float vZ;\nvarying float vNz;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvZ = position.z;\nvNz = normalize(normal).z;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying float vZ;\nuniform vec3 uBandColors[8];\nuniform float uBandTops[8];\nuniform int uBandCount;\nuniform float uWaterTop;\nuniform vec3 uWaterColor;')
+    .replace('#include <common>', '#include <common>\nvarying float vZ;\nvarying float vNz;\nuniform vec3 uBandColors[8];\nuniform float uBandTops[8];\nuniform int uBandCount;\nuniform float uWaterTop;\nuniform vec3 uWaterColor;')
     .replace('#include <color_fragment>', `#include <color_fragment>
       vec3 bandCol = uBandColors[0];
-      for (int i = 1; i < 8; i++) { if (i < uBandCount && vZ >= uBandTops[i - 1]) bandCol = uBandColors[i]; }
+      float edge = 0.0, px = fwidth(vZ) * 1.2;
+      for (int i = 1; i < 8; i++) {
+        if (i < uBandCount) {
+          if (vZ >= uBandTops[i - 1]) bandCol = uBandColors[i];
+          edge = max(edge, 1.0 - smoothstep(0.0, px, abs(vZ - uBandTops[i - 1])));
+        }
+      }
       if (vZ < uWaterTop) bandCol = uWaterColor;
+      // Preview only: steep ground reads darker and a thin line marks each color change (filament swap),
+      // so the shape of the land shows through even with flat band colors
+      bandCol *= mix(0.68, 1.0, smoothstep(0.35, 0.95, vNz));
+      bandCol *= 1.0 - 0.35 * edge;
       diffuseColor.rgb = bandCol;`);
 };
 
@@ -2279,6 +2303,16 @@ async function loadBuildInfo() {
   for (const el of document.querySelectorAll('.build-info')) el.innerHTML = 'Terrafy ' + parts.join(' · ');
 }
 loadBuildInfo();
+
+// Simple / Advanced switch (the choice is applied before first paint in <head> and remembered)
+const detailButtons = document.querySelectorAll('.detail-toggle button');
+function showDetail(level) {
+  document.documentElement.classList.toggle('simple', level === 'simple');
+  detailButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.detail === level)));
+  try { localStorage.setItem('terrafy-detail', level); } catch (e) {}
+}
+detailButtons.forEach((b) => { b.onclick = () => showDetail(b.dataset.detail); });
+showDetail(document.documentElement.classList.contains('simple') ? 'simple' : 'advanced');
 
 // On phones, start with only "Add rides" and "Export" open; every other section opens with a tap
 if (matchMedia('(max-width: 820px)').matches) {
